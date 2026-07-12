@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design tokens ─────────────────────────────── */
+:root {
+  --bg:          #000000;
+  --dp-red:      #1a0d0d;
+  --dp-red-2:    #2d1515;
+  --dp-red-3:    #3d1a1a;
+  --dp-brown:    #16120f;
+  --dp-brown-2:  #261e1a;
+  --dp-brown-3:  #332820;
+  --sheet-bg:    #0e0c0b;
+  --cream:       #FBEED3;
+  --orange:      #EAA847;
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+}
+
+/* ─── Reset ─────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+  overflow: hidden;
+}
+
+body {
+  height: 100dvh;
+  min-height: -webkit-fill-available;
+  overflow: hidden;
+  background: #000;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  font-family: -apple-system, 'Inter', BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+}
+
+#__next {
+  height: 100dvh;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── Scrollbar suppression ──────────────────────── */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* ─── Focus ──────────────────────────────────────── */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgba(234,168,71,0.55) !important;
+}
+input[type="file"] { display: none; }
+
+/* ─── Animations ─────────────────────────────────── */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes popIn {
+  0%   { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.animate-slide-up { animation: slideUp 0.34s cubic-bezier(0.32,0.72,0,1) both; }
+.animate-fade-in  { animation: fadeIn 0.18s ease both; }
+.animate-pop      { animation: popIn 0.2s ease both; }
+
+/* ─── Episode button tap ─────────────────────────── */
+.ep-btn { transition: transform 0.1s ease, background 0.12s ease; }
+.ep-btn:active { transform: scale(0.80) !important; }

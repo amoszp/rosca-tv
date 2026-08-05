@@ -1,44 +1,54 @@
 # RoscaTV 📺
 
-A premium, native-feeling iOS PWA to track movies, series, and anime. Built with Next.js 14, Tailwind CSS, TypeScript, and the TMDB API.
+A premium, native-feeling iOS PWA to track movies, series, and anime. Built with Next.js 14 App Router, Tailwind CSS, TypeScript, and the TMDB API.
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Clone and install
-git clone <repo> && cd trackr && npm install
+# 1. Install dependencies
+npm install
 
-# 2. Add your TMDB token
+# 2. Set your TMDB API Read Access Token
 cp .env.local.example .env.local
-# Edit .env.local → NEXT_PUBLIC_TMDB_TOKEN=<your token>
+# Edit .env.local and add:
+# NEXT_PUBLIC_TMDB_TOKEN=eyJhbGciOiJIUzI1NiJ9...
 
-# 3. Run dev
+# 3. Run locally
 npm run dev
 ```
 
-Get a free TMDB API Read Access Token at: https://www.themoviedb.org/settings/api
+Get a free TMDB token at: **https://www.themoviedb.org/settings/api**
+(Use the "API Read Access Token" — the long JWT string, not the short API key.)
 
 ---
 
-## Deploy to Vercel (1-click)
+## Deploy to Vercel
 
-1. Push to GitHub
-2. Import at vercel.com/new
-3. Add env var: `NEXT_PUBLIC_TMDB_TOKEN`
-4. Deploy ✅
+1. Push your fork to GitHub
+2. Import at **vercel.com/new**
+3. Add environment variable: `NEXT_PUBLIC_TMDB_TOKEN = <your token>`
+4. Deploy — done ✅
 
 ---
 
-## JSON Import/Export Schema
+## HOW TO PROPERLY STRUCTURE AND IMPORT YOUR JSON LIBRARY
 
-RoscaTV exports and imports a single JSON object. Here is the **exact schema** the import function expects:
+### Overview
+
+RoscaTV allows you to export your complete library as a `.json` file and import it on any device. When imported, items immediately appear in the Movies, Series, and Anime tabs. Any missing poster images are automatically fetched from TMDB in the background — no restart required.
+
+---
+
+### Exact JSON Schema
+
+The import file must be a JSON object with a top-level `library` key. Each entry inside `library` is keyed by its **numeric TMDB ID**.
 
 ```json
 {
   "version": 3,
-  "exportedAt": "2025-07-12T00:00:00.000Z",
+  "exportedAt": "2025-07-13T00:00:00.000Z",
   "library": {
     "550": {
       "id": 550,
@@ -46,12 +56,12 @@ RoscaTV exports and imports a single JSON object. Here is the **exact schema** t
       "type": "movies",
       "title": "Fight Club",
       "year": "1999",
-      "poster": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
+      "poster": "",
       "tmdbRating": "8.4",
       "status": "watched",
       "userRating": 9.5,
       "seasonData": {},
-      "notes": "Incredible film.",
+      "notes": "Incredible third-act twist.",
       "addedAt": 1720000000000,
       "updatedAt": 1720000100000
     },
@@ -61,7 +71,7 @@ RoscaTV exports and imports a single JSON object. Here is the **exact schema** t
       "type": "series",
       "title": "Breaking Bad",
       "year": "2008",
-      "poster": "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+      "poster": "",
       "tmdbRating": "9.5",
       "status": "watching",
       "userRating": 10.0,
@@ -82,52 +92,138 @@ RoscaTV exports and imports a single JSON object. Here is the **exact schema** t
           "rating": 9.0,
           "episodes": {
             "1": true,
-            "2": true
+            "2": true,
+            "3": false,
+            "4": false
           }
         }
       },
-      "notes": "Best TV show ever made.",
+      "notes": "Best TV ever made.",
       "addedAt": 1720000000000,
-      "updatedAt": 1720000100000
+      "updatedAt": 1720000200000
+    },
+    "31911": {
+      "id": 31911,
+      "mediaType": "tv",
+      "type": "anime",
+      "title": "Fullmetal Alchemist: Brotherhood",
+      "year": "2009",
+      "poster": "",
+      "tmdbRating": "9.1",
+      "status": "watched",
+      "userRating": 9.5,
+      "seasonData": {
+        "1": {
+          "rating": 9.5,
+          "episodes": {}
+        }
+      },
+      "notes": "",
+      "addedAt": 1720000000000,
+      "updatedAt": 1720000000000
     }
   }
 }
 ```
 
+---
+
 ### Field Reference
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | `number` | ✅ | TMDB item ID |
-| `mediaType` | `"movie" \| "tv"` | ✅ | TMDB media type |
-| `type` | `"movies" \| "series" \| "anime"` | ✅ | Which library tab |
-| `title` | `string` | ✅ | Display title |
-| `year` | `string` | ✅ | Release year e.g. `"2008"` |
-| `poster` | `string \| null` | ✅ | TMDB poster path e.g. `/abc.jpg` |
-| `tmdbRating` | `string` | ✅ | TMDB score e.g. `"8.4"` |
-| `status` | `"pending" \| "watching" \| "watched"` | ✅ | Tracking status |
-| `userRating` | `number \| undefined` | — | Personal score 1.0–10.0 |
-| `seasonData` | `object` | — | Per-season progress (TV only) |
-| `seasonData[N].rating` | `number \| undefined` | — | Season N personal score |
-| `seasonData[N].episodes` | `Record<string, boolean>` | — | Episode watched map |
-| `notes` | `string` | — | Private notes |
-| `addedAt` | `number` | ✅ | Unix ms timestamp |
-| `updatedAt` | `number` | — | Unix ms timestamp |
+| Field | Type | Required | Accepted values | Description |
+|---|---|---|---|---|
+| `id` | `number` | ✅ | Any positive integer | TMDB item ID. Must be a **number**, not a string. |
+| `mediaType` | `string` | ✅ | `"movie"` · `"tv"` | TMDB media type. Determines which detail endpoint is called for poster sync. |
+| `type` | `string` | ✅ | `"movies"` · `"series"` · `"anime"` | Which library tab the item appears in. |
+| `title` | `string` | ✅ | Any string | Display title. Refreshed from TMDB if blank during poster sync. |
+| `year` | `string` | ✅ | `"2009"` | 4-digit release year string. |
+| `poster` | `string` | — | Full `https://` URL or `""` | Leave empty — the app fills this automatically from TMDB. |
+| `tmdbRating` | `string` | ✅ | `"8.4"` · `"—"` | TMDB community score. Refreshed if `"—"` during poster sync. |
+| `status` | `string` | ✅ | `"pending"` · `"watching"` · `"watched"` | Tracking status. Controls which filter tab the item appears under. |
+| `userRating` | `number` \| `undefined` | — | `1.0` – `10.0` (0.5 steps) | Your personal global rating. |
+| `seasonData` | `object` | — | See below | Per-season progress and ratings. Empty object `{}` for movies. |
+| `seasonData[N].rating` | `number` \| `undefined` | — | `1.0` – `10.0` | Your personal rating for season N. |
+| `seasonData[N].episodes` | `object` | — | `{ "1": true, "2": false }` | Map of episode number → watched boolean. |
+| `notes` | `string` | — | Any string | Private notes. Supports any text. |
+| `addedAt` | `number` | ✅ | Unix ms timestamp | When the item was added. Use `Date.now()` if constructing manually. |
+| `updatedAt` | `number` | — | Unix ms timestamp | Last modification time. Optional but recommended. |
 
 ---
 
-## Import Troubleshooting Checklist
+### How the Automatic Poster Sync Works (Step by Step)
 
-If imported items don't appear in your library tabs, follow these steps in order:
+When you tap **"Choose .json to import"** in the Settings screen, the following sequence runs:
 
-- [ ] **Check the JSON structure.** The file must have a top-level `"library"` key containing an object where each value is a valid LibraryItem (see schema above).
-- [ ] **Check the `"type"` field.** Must be exactly `"movies"`, `"series"`, or `"anime"` — this determines which tab the item appears in. A typo like `"movie"` or `"tv"` will cause the item to be saved but not shown.
-- [ ] **Check the `"id"` field.** Must be a **number**, not a string. Use `550` not `"550"`.
-- [ ] **Check the `"status"` field.** Must be one of `"pending"`, `"watching"`, or `"watched"`. Missing or misspelled status will still save but may filter oddly.
-- [ ] **Force-refresh after import.** On iOS PWA: swipe up the app from App Switcher and reopen. On browser: hard-reload with Cmd+Shift+R / Ctrl+Shift+R.
-- [ ] **Check DevTools > Application > IndexedDB > rosca-db > library.** If items appear there, tap each library tab again — the Zustand store should already have them from `reloadLib()`.
-- [ ] **Export first, then import.** Always export your current library before importing to avoid data loss. The import merges by `id` — newer `updatedAt` wins.
-- [ ] **Version compatibility.** Files exported from RoscaTV v1/v2 may have `episodes` directly on the item instead of nested under `seasonData`. You can manually fix them using the schema above.
+**Step 1 — Parse & validate the file**
+
+The app reads the uploaded `.json`, parses it, and checks that a `library` key exists. If the structure is invalid, an error toast is shown immediately and nothing is written.
+
+**Step 2 — Write to IndexedDB + localStorage**
+
+Every valid item is saved using `saveItem()`, which writes to IndexedDB (primary) and mirrors to `localStorage` (fallback). The Zustand store is then reloaded via `reloadLib()` so the Movies, Series, and Anime tabs populate **instantly** — you see your list with text data right away.
+
+**Step 3 — Identify items missing posters**
+
+After reloading, the app filters the imported items for any entry where `poster` is empty or missing. These are queued for the 2-step TMDB image construction routine.
+
+**Step 4 — Fetch TMDB configuration (Step A)**
+
+A single request is made to:
+```
+GET https://api.themoviedb.org/3/configuration
+Authorization: Bearer <your token>
+```
+The response contains `images.secure_base_url` (e.g. `https://image.tmdb.org/t/p/`). This value is **cached in memory** for the session — it is only fetched once regardless of how many items need syncing.
+
+**Step 5 — Fetch item details (Step B)**
+
+For each item missing a poster, the app requests:
+```
+GET https://api.themoviedb.org/3/movie/{id}     (for movies)
+GET https://api.themoviedb.org/3/tv/{id}        (for series and anime)
+Authorization: Bearer <your token>
+```
+From the response, `poster_path` is extracted (e.g. `/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg`).
+
+**Step 6 — Construct the full poster URL**
+
+The final URL is assembled with **no double slashes**:
+```
+secure_base_url  =  "https://image.tmdb.org/t/p/"   ← ends with /
+poster_path      =  "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"  ← starts with /
+
+Strip leading / from poster_path, then:
+full_url = "https://image.tmdb.org/t/p/" + "w500/" + "pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
+         = "https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"  ✅
+```
+
+**Step 7 — Persist to storage and re-render**
+
+The full URL is written back into the item's `poster` field via `upsertItem()`, which simultaneously updates:
+- The Zustand in-memory store → causes the card to re-render with the real poster immediately
+- IndexedDB → so the poster URL persists across app restarts
+- `localStorage` → fallback layer used on import
+
+Dark-pastel skeleton loaders are shown on cards while their poster is being fetched. Once the URL is saved, the `<Image>` component renders the poster without any page reload.
+
+Items are processed in **batches of 3** with a 300 ms gap between batches to respect TMDB's rate limits.
+
+---
+
+### Import Troubleshooting Checklist
+
+Run through this list if imported items don't show posters or don't appear in tabs:
+
+- [ ] **Check `type` field.** Must be exactly `"movies"`, `"series"`, or `"anime"`. A value of `"movie"` or `"tv"` here will cause the item to be saved but not appear in any tab.
+- [ ] **Check `id` is a number.** `550` ✅ · `"550"` ❌. JavaScript will silently convert string keys but the IDB keyPath expects a number.
+- [ ] **Check `status` spelling.** Must be one of: `"pending"`, `"watching"`, `"watched"`. Any other value will default to `"pending"`.
+- [ ] **Check `mediaType` field.** Must be `"movie"` or `"tv"`. This controls which TMDB endpoint is called for poster sync.
+- [ ] **Check your TMDB token.** If `NEXT_PUBLIC_TMDB_TOKEN` is missing or expired, the poster sync will silently fail. Open DevTools → Network and look for 401 responses.
+- [ ] **Try re-importing.** The poster sync is idempotent — re-importing the same file will re-trigger the sync only for items still missing posters.
+- [ ] **Force-close and reopen.** On iOS PWA: swipe up in the App Switcher and reopen. The `usePosterSync` hook fires on every library load.
+- [ ] **Check DevTools → Application → IndexedDB → rosca-db → library.** If items appear there, the import succeeded. The issue is display-only and will resolve on next render cycle.
+- [ ] **Version compatibility.** Files exported from v1/v2 (with `episodes` flat on the item rather than nested under `seasonData`) can be manually migrated using the schema table above.
+- [ ] **Always export first.** Import merges by `id` — newer `updatedAt` wins. Export a backup before importing to avoid accidental overwrites.
 
 ---
 
@@ -135,23 +231,34 @@ If imported items don't appear in your library tabs, follow these steps in order
 
 ```
 trackr/
-├── app/               # Next.js 14 App Router
-│   ├── layout.tsx     # PWA meta, apple-touch-icon, viewport-fit=cover
-│   ├── page.tsx       # SSR-safe dynamic import
-│   └── globals.css    # CSS custom properties, animations
+├── app/
+│   ├── layout.tsx          # PWA meta, apple-touch-icon, viewport-fit=cover
+│   ├── page.tsx            # SSR-safe dynamic import
+│   └── globals.css         # CSS tokens, animations, skeleton shimmer
 ├── components/
-│   ├── App.tsx        # Shell: cream/orange header, tab routing
-│   ├── nav/BottomNav  # 5-tab nav: Movies/Series/Anime/Search/Settings
-│   ├── library/       # LibraryScreen + MediaCard
-│   ├── search/        # SearchScreen + SearchResultItem (instant-add)
-│   ├── settings/      # SettingsScreen (export/import)
-│   ├── sheets/        # BottomSheet + ArcDial
-│   └── ui/            # StatusBadge, Toast
+│   ├── App.tsx             # Shell: centred header, tab routing
+│   ├── nav/BottomNav.tsx   # 5-tab nav: Movies/Series/Anime/Search/Settings
+│   ├── library/
+│   │   ├── LibraryScreen.tsx   # 2-row header, collapsible filters, inline search
+│   │   └── MediaCard.tsx       # Card with skeleton loader, slide-out delete
+│   ├── search/
+│   │   ├── SearchScreen.tsx    # TMDB search, instant "+" add
+│   │   └── SearchResultItem.tsx
+│   ├── settings/
+│   │   └── SettingsScreen.tsx  # Export/import + immediate poster backfill
+│   ├── sheets/
+│   │   ├── BottomSheet.tsx     # Detail drawer: status, providers, ratings, seasons
+│   │   └── FluidSlider.tsx     # Horizontal 1.0–10.0 rating slider
+│   └── ui/
+│       ├── StatusBadge.tsx
+│       └── Toast.tsx
+├── hooks/
+│   └── usePosterSync.ts    # Background TMDB poster hydration hook
 └── lib/
-    ├── types.ts       # TypeScript interfaces
-    ├── tmdb.ts        # TMDB API helpers
-    ├── db.ts          # IndexedDB + localStorage dual-layer
-    └── store.ts       # Zustand state
+    ├── types.ts            # TypeScript interfaces
+    ├── tmdb.ts             # TMDB API: config, search, details, poster URL builder
+    ├── db.ts               # IndexedDB + localStorage dual layer
+    └── store.ts            # Zustand global state
 ```
 
 ---

@@ -1,235 +1,171 @@
 'use client'
-import { useRef, useCallback, useState, useLayoutEffect } from 'react'
+import { useRef, useCallback, useState, useLayoutEffect, useId } from 'react'
 
-/* ─── 1.0 → 10.0 in 0.5 steps ─── */
-const STEPS = Array.from({ length: 19 }, (_, i) =>
-  parseFloat((1.0 + i * 0.5).toFixed(1))
-)
+// 0.1 step: 1.0 → 10.0 = 91 values
+const MIN = 1.0
+const MAX = 10.0
+const STEP = 0.1
 
-/* Score → accent colour (dark-pastel spectrum) */
-function trackColor(v: number | undefined): string {
-  if (v === undefined) return '#3a2020'
-  const t = (v - 1) / 9
-  if (t < 0.5) {
-    // dark red → warm brown
-    const r = Math.round(0x5a + (0x7a - 0x5a) * (t / 0.5))
-    const g = Math.round(0x18 + (0x38 - 0x18) * (t / 0.5))
-    const b = Math.round(0x18 + (0x20 - 0x18) * (t / 0.5))
-    return `rgb(${r},${g},${b})`
-  } else {
-    // warm brown → teal/blue
-    const u = (t - 0.5) / 0.5
-    const r = Math.round(0x7a + (0x1a - 0x7a) * u)
-    const g = Math.round(0x38 + (0x7a - 0x38) * u)
-    const b = Math.round(0x20 + (0x6a - 0x20) * u)
-    return `rgb(${r},${g},${b})`
-  }
+function snap(val: number): number {
+  return Math.max(MIN, Math.min(MAX, Math.round(val / STEP) * STEP))
 }
 
 interface Props {
   value:    number | undefined
   onChange: (v: number | undefined) => void
   label?:   string
-  compact?: boolean   // true = season slider (smaller)
+  compact?: boolean
 }
 
 export default function FluidSlider({ value, onChange, label, compact = false }: Props) {
-  const [typing, setTyping]     = useState(false)
-  const [inputStr, setInputStr] = useState('')
+  const [inputVal, setInputVal] = useState(value !== undefined ? value.toFixed(1) : '')
+  const [focused,  setFocused]  = useState(false)
   const trackRef  = useRef<HTMLDivElement>(null)
   const dragging  = useRef(false)
   const cbRef     = useRef(onChange)
+  const inputRef  = useRef<HTMLInputElement>(null)
+  const id        = useId()
+
   useLayoutEffect(() => { cbRef.current = onChange }, [onChange])
+  useLayoutEffect(() => {
+    if (!focused) setInputVal(value !== undefined ? value.toFixed(1) : '')
+  }, [value, focused])
 
-  const currentIdx = value !== undefined
-    ? STEPS.findIndex(s => Math.abs(s - value) < 0.01)
-    : -1
-  const pct = currentIdx >= 0 ? (currentIdx / (STEPS.length - 1)) * 100 : 0
-  const color = trackColor(value)
+  const pct = value !== undefined ? ((value - MIN) / (MAX - MIN)) * 100 : 0
 
-  const applyClientX = useCallback((clientX: number) => {
+  const applyRatio = useCallback((clientX: number) => {
     if (!trackRef.current) return
     const rect  = trackRef.current.getBoundingClientRect()
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-    const idx   = Math.round(ratio * (STEPS.length - 1))
-    cbRef.current(STEPS[idx])
+    cbRef.current(snap(MIN + ratio * (MAX - MIN)))
   }, [])
 
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId)
-    dragging.current = true
-    applyClientX(e.clientX)
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputVal(e.target.value)
   }
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return
-    applyClientX(e.clientX)
+  const handleInputBlur = () => {
+    setFocused(false)
+    const n = parseFloat(inputVal.replace(',', '.'))
+    if (!isNaN(n)) onChange(snap(n))
+    else setInputVal(value !== undefined ? value.toFixed(1) : '')
   }
-  const onPointerUp = () => { dragging.current = false }
-
-  const commitType = () => {
-    const n = parseFloat(inputStr.replace(',', '.'))
-    if (!isNaN(n) && n >= 1 && n <= 10) {
-      const nearest = STEPS.reduce((p, c) => Math.abs(c - n) < Math.abs(p - n) ? c : p)
-      onChange(nearest)
-    }
-    setTyping(false)
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { inputRef.current?.blur() }
+    if (e.key === 'Escape') { setInputVal(value !== undefined ? value.toFixed(1) : ''); setFocused(false); inputRef.current?.blur() }
   }
 
-  if (typing) {
-    return (
-      <div className="flex flex-col gap-2">
-        {label && <p className="font-black text-white uppercase tracking-widest" style={{ fontSize: 10 }}>{label}</p>}
-        <div className="flex items-center gap-2">
-          <input
-            autoFocus
-            type="number" step="0.5" min="1" max="10"
-            value={inputStr}
-            onChange={e => setInputStr(e.target.value)}
-            onBlur={commitType}
-            onKeyDown={e => e.key === 'Enter' && commitType()}
-            placeholder="1.0 – 10.0"
-            className="flex-1 rounded-[10px] text-center font-black tabular-nums text-white"
-            style={{
-              background: 'rgba(0,0,0,0.6)',
-              border: '1px solid rgba(234,168,71,0.45)',
-              fontSize: compact ? 16 : 20,
-              padding: compact ? '8px 10px' : '11px 12px',
-            }}
-          />
-          <button onClick={commitType}
-            className="rounded-[10px] font-bold text-white"
-            style={{ background: '#c47d1e', padding: compact ? '8px 14px' : '11px 18px', fontSize: 13 }}>
-            Set
-          </button>
-          <button onClick={() => setTyping(false)}
-            className="rounded-[10px]"
-            style={{ background: 'rgba(255,255,255,0.07)', padding: compact ? '8px 10px' : '11px 12px', fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
-            ✕
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const thumbSize   = compact ? 20 : 26
+  const thumbSize   = compact ? 18 : 22
   const trackHeight = compact ? 6  : 8
 
   return (
     <div className="flex flex-col gap-2">
       {label && (
-        <p className="font-black text-white uppercase tracking-widest" style={{ fontSize: 10 }}>{label}</p>
+        <label htmlFor={id} className="font-black text-white uppercase tracking-widest" style={{ fontSize: 10 }}>
+          {label}
+        </label>
       )}
 
-      {/* Score badge + clear */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => { setInputStr(value !== undefined ? value.toFixed(1) : ''); setTyping(true) }}
-          className="flex items-center gap-1.5 rounded-[8px] px-2.5 py-1 active:opacity-60 transition-opacity"
-          style={{ background: value !== undefined ? `${color}55` : 'rgba(255,255,255,0.06)', border: `1px solid ${value !== undefined ? color : 'rgba(255,255,255,0.1)'}` }}
+      <div className="flex items-center gap-3">
+        {/* Track + Thumb */}
+        <div className="flex-1 relative flex items-center"
+          style={{ height: thumbSize + 12, touchAction: 'none', cursor: 'pointer' }}
+          ref={trackRef}
+          onPointerDown={e => {
+            e.currentTarget.setPointerCapture(e.pointerId)
+            dragging.current = true
+            applyRatio(e.clientX)
+          }}
+          onPointerMove={e => { if (!dragging.current) return; applyRatio(e.clientX) }}
+          onPointerUp={() => { dragging.current = false }}
+          onPointerCancel={() => { dragging.current = false }}
+          role="slider"
+          aria-valuemin={MIN} aria-valuemax={MAX} aria-valuenow={value} aria-label={label || 'Rating'}
+          tabIndex={0}
+          onKeyDown={e => {
+            if (e.key === 'ArrowRight') onChange(snap((value ?? MIN) + STEP))
+            if (e.key === 'ArrowLeft')  onChange(snap((value ?? MIN) - STEP))
+            if (e.key === 'Home') onChange(MIN)
+            if (e.key === 'End')  onChange(MAX)
+          }}
         >
-          <span
-            className="font-black tabular-nums leading-none"
-            style={{
-              fontSize: compact ? 18 : 24,
-              color: value !== undefined ? '#fff' : 'rgba(255,255,255,0.25)',
-            }}
-          >
-            {value !== undefined ? value.toFixed(1) : '—'}
-          </span>
-          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>/10</span>
-        </button>
+          {/* Background rail — high contrast against #141D38 */}
+          <div className="absolute w-full rounded-full"
+            style={{ height: trackHeight, background: '#2A385B', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)' }} />
 
-        {value !== undefined && (
-          <button
-            onClick={() => onChange(undefined)}
-            className="active:opacity-50"
-            style={{ fontSize: 10, color: 'rgba(255,255,255,0.32)', padding: '4px 8px' }}
-          >
-            Clear ✕
-          </button>
-        )}
-      </div>
-
-      {/* Track */}
-      <div
-        ref={trackRef}
-        className="relative flex items-center select-none"
-        style={{ height: thumbSize + 8, cursor: 'pointer', touchAction: 'none' }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        {/* Background rail */}
-        <div
-          className="absolute rounded-full w-full"
-          style={{ height: trackHeight, background: 'rgba(255,255,255,0.08)' }}
-        />
-
-        {/* Filled portion */}
-        {value !== undefined && (
-          <div
-            className="absolute rounded-full"
-            style={{
-              height: trackHeight,
-              width: `${pct}%`,
-              background: `linear-gradient(90deg, #5a1818 0%, ${color} 100%)`,
-              boxShadow: `0 0 8px ${color}66`,
-              transition: 'width 0.08s ease, background 0.15s ease',
-            }}
-          />
-        )}
-
-        {/* Step tick marks */}
-        {STEPS.map((_, i) => {
-          const x = (i / (STEPS.length - 1)) * 100
-          return (
-            <div
-              key={i}
-              className="absolute rounded-full"
+          {/* Filled rail — glowing sun yellow */}
+          {value !== undefined && (
+            <div className="absolute rounded-full"
               style={{
-                left: `${x}%`,
-                width: 1.5,
-                height: trackHeight * 0.6,
-                background: 'rgba(255,255,255,0.15)',
-                transform: 'translateX(-50%)',
-                top: '50%',
-                marginTop: -(trackHeight * 0.3),
-              }}
-            />
-          )
-        })}
+                height: trackHeight,
+                width: `${pct}%`,
+                background: 'linear-gradient(90deg, rgba(252,219,50,0.6) 0%, #FCDB32 100%)',
+                boxShadow: '0 0 10px rgba(252,219,50,0.5)',
+                transition: dragging.current ? 'none' : 'width 0.06s ease',
+              }} />
+          )}
 
-        {/* Thumb */}
-        {value !== undefined && (
-          <div
-            className="absolute rounded-full"
+          {/* Thumb */}
+          {value !== undefined && (
+            <div className="absolute rounded-full"
+              style={{
+                left: `${pct}%`,
+                transform: 'translateX(-50%)',
+                width: thumbSize, height: thumbSize,
+                background: '#FCDB32',
+                boxShadow: '0 0 0 3px rgba(252,219,50,0.28), 0 2px 8px rgba(0,0,0,0.5)',
+                transition: dragging.current ? 'none' : 'left 0.06s ease',
+                zIndex: 2,
+              }} />
+          )}
+
+          {value === undefined && (
+            <div className="absolute w-full flex items-center justify-center pointer-events-none" aria-hidden="true">
+              <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>drag to rate</span>
+            </div>
+          )}
+        </div>
+
+        {/* Editable numeric badge */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <input
+            id={id}
+            ref={inputRef}
+            type="number"
+            min={MIN} max={MAX} step={STEP}
+            value={inputVal}
+            placeholder="—"
+            onFocus={() => setFocused(true)}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleInputKeyDown}
+            aria-label={`${label || 'Rating'} value`}
+            className="rounded-lg text-center font-black tabular-nums text-white"
             style={{
-              left: `${pct}%`,
-              transform: 'translateX(-50%)',
-              width: thumbSize,
-              height: thumbSize,
-              background: '#fff',
-              boxShadow: `0 0 0 3px ${color}, 0 2px 8px rgba(0,0,0,0.5)`,
-              transition: 'left 0.08s ease, box-shadow 0.15s ease',
-              zIndex: 2,
+              width: compact ? 48 : 56, height: compact ? 32 : 38,
+              background: value !== undefined ? 'rgba(252,219,50,0.12)' : 'var(--surface-3)',
+              border: `1.5px solid ${value !== undefined ? 'rgba(252,219,50,0.45)' : 'var(--border-dim)'}`,
+              fontSize: compact ? 13 : 16,
             }}
           />
-        )}
-
-        {/* "Tap to start" hint when no value */}
-        {value === undefined && (
-          <div className="absolute w-full flex items-center justify-center">
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)' }}>drag to rate</span>
-          </div>
-        )}
+          <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>/10</span>
+        </div>
       </div>
 
       {/* Min / max labels */}
-      <div className="flex justify-between" style={{ marginTop: -4 }}>
-        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>1.0</span>
-        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>10.0</span>
+      <div className="flex justify-between" style={{ marginTop: -4, paddingRight: compact ? 68 : 80 }} aria-hidden="true">
+        <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>1.0</span>
+        <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>10.0</span>
       </div>
+
+      {/* Clear button */}
+      {value !== undefined && (
+        <button onClick={() => { onChange(undefined); setInputVal('') }}
+          aria-label="Clear rating"
+          className="self-start transition-opacity active:opacity-50"
+          style={{ fontSize: 10, color: 'var(--text-faint)', padding: '0 2px' }}>
+          Clear ✕
+        </button>
+      )}
     </div>
   )
 }

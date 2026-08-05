@@ -7,6 +7,8 @@ const withPWA = require('next-pwa')({
 });
 
 const nextConfig = {
+  output: 'standalone',
+
   images: {
     remotePatterns: [
       {

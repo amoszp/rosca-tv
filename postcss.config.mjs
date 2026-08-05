@@ -2,7 +2,8 @@
 const config = {
   plugins: {
     tailwindcss: {},
+    autoprefixer: {},   // was missing — needed for cross-browser vendor prefixes
   },
-};
+}
 
-export default config;
+export default config

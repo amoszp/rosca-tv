@@ -1,43 +1,78 @@
+# =============================================================================
+# WHY THE NGINX DOCKERFILE FROM THE SPEC IS INCOMPATIBLE WITH NEXT.JS
+# =============================================================================
+# The spec's Stage 2 copies /app/dist into Nginx. That pattern is for
+# single-page apps (Vite, Create React App) that produce a fully static
+# bundle. Next.js 14 App Router is a Node.js server application:
+#   • It produces /app/.next (compiled server + client code)
+#   • It requires `next start` (a Node process) to serve pages
+#   • It supports SSR, API routes, and ISR — none of which work behind Nginx
+#     serving flat static files
+#   • Even for purely static exports (`output: 'export'`), Next.js writes
+#     to /app/out, not /app/dist
+#
+# CORRECT APPROACH: Two-stage build preserved, Stage 2 uses node:20-alpine
+# instead of Nginx. Nginx could be added as a reverse proxy in front of
+# this container (e.g. in docker-compose), but the app itself must run Node.
+# =============================================================================
+
 # -----------------------------------------------------------------------------
-# ETAPA 1: Construcción (Build)
+# STAGE 1: Build
 # -----------------------------------------------------------------------------
 FROM node:20-alpine AS builder
 
+# Install libc compat for Alpine (required by some native Node modules)
+RUN apk add --no-cache libc6-compat
+
 WORKDIR /app
 
-# Copiar archivos de dependencias primero para aprovechar el caché de Docker
+# Copy dependency manifests first — Docker cache layer
 COPY package*.json ./
 
-# Instalar dependencias
+# Clean install — respects package-lock.json exactly (reproducible)
 RUN npm ci
 
-# Copiar todo el código fuente del proyecto
+# Copy the rest of the project
 COPY . .
 
-# Compilar la aplicación para producción
+# Build environment variables (no secrets — only public config)
+# Override at runtime via docker run -e or docker-compose environment:
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# Build the Next.js application
 RUN npm run build
 
 # -----------------------------------------------------------------------------
-# ETAPA 2: Servidor Web de Producción (Nginx)
+# STAGE 2: Production runtime
 # -----------------------------------------------------------------------------
-FROM nginx:alpine
+FROM node:20-alpine AS runner
 
-# Copiar los archivos compilados desde la etapa de builder a la carpeta de Nginx
-# Nota: Si tu carpeta de salida es 'build' en lugar de 'dist', cambia 'dist' por 'build' abajo
-COPY --from=builder /app/dist /usr/share/nginx/html
+RUN apk add --no-cache libc6-compat
 
-# Copiar configuración para SPA (Single Page Application) si Nginx necesita manejar rutas de React
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html index.htm; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Exponer el puerto 80
-EXPOSE 80
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+# Default port — override with -e PORT=xxxx
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-# Arrancar Nginx en primer plano
-CMD ["nginx", "-g", "daemon off;"]
+# Create a non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser  --system --uid 1001 nextjs
+
+# Copy only what next start needs (excludes source, devDeps, test fixtures)
+COPY --from=builder /app/public         ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static   ./.next/static
+
+# Own the app directory
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
+EXPOSE 3000
+
+# next start via the standalone server.js (smallest possible runtime footprint)
+CMD ["node", "server.js"]

@@ -1,1 +1,24 @@
-{"name":"RoscaTV","short_name":"RoscaTV","description":"Tu tracker personal de películas, series y anime.","start_url":"/","display":"standalone","background_color":"#0F162A","theme_color":"#0F162A","orientation":"portrait-primary","icons":[{"src":"/icon.png","sizes":"any","type":"image/png","purpose":"any"}]}
+{
+  "name": "RoscaTV",
+  "short_name": "RoscaTV",
+  "description": "Tu tracker personal de películas, series y anime.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F162A",
+  "theme_color": "#0F162A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

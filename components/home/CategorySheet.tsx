@@ -10,7 +10,7 @@ interface Props { title: string; items: TMDBResult[]; onSelect: (r: TMDBResult) 
    the item detail sheet, so it reads as the same kind of surface. */
 export default function CategorySheet({ title, items, onSelect, onClose }: Props) {
   return (
-    <div className="absolute inset-0 z-50 flex items-end animate-fade-in"
+    <div className="fixed inset-0 z-50 flex items-end animate-fade-in"
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
       onClick={onClose}
       role="dialog" aria-modal="true" aria-label={title}>

@@ -5,14 +5,14 @@ import type { Tab } from '@/lib/types'
 const ITEMS: { id: Tab; label: string }[] = [
   { id:'home', label:'Home' },
   { id:'series', label:'Series' },{ id:'anime', label:'Anime' },
-  { id:'movies', label:'Movies' },{ id:'search', label:'Search' },{ id:'settings', label:'Settings' },
+  { id:'movies', label:'Movies' },{ id:'settings', label:'Settings' },
 ]
 
 export default function BottomNav() {
   const { tab, setTab } = useStore()
   return (
     <nav className="flex-shrink-0 flex flex-col" style={{ paddingBottom:'env(safe-area-inset-bottom,0px)', background:'transparent' }}>
-      <div className="glass-strong flex mx-3 mb-2 rounded-3xl" style={{ height:64, padding:6, boxShadow:'var(--shadow-lg)' }}>
+      <div className="glass-strong flex mx-3 rounded-3xl" style={{ height:64, padding:6, boxShadow:'var(--shadow-lg)' }}>
         {ITEMS.map(item => {
           const active = tab === item.id
           return (

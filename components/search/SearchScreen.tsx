@@ -37,25 +37,25 @@ export default function SearchScreen() {
   }, [library, upsertItem, showToast])
 
   return (
-    <div className="flex flex-col h-full" style={{ background:'var(--bg)' }}>
+    <div className="flex flex-col h-full" style={{ background:'transparent', paddingTop:'env(safe-area-inset-top,0px)' }}>
       <div className="flex-shrink-0 px-4 pt-4 pb-3">
         <div className="relative">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color:'var(--text-faint)' }} aria-hidden="true">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color:'var(--accent)' }} aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </span>
           <input ref={inputRef} type="search" value={searchQuery} onChange={e => handleSearch(e.target.value)}
             placeholder="Search series, anime, movies…" aria-label="Search media"
-            className="w-full rounded-xl py-2.5 pl-10 pr-9 text-[15px] text-white"
-            style={{ background:'var(--surface-2)', border:'1px solid var(--border-dim)', minHeight:44 }} />
+            className="w-full rounded-2xl py-3 pl-11 pr-9 text-[15px] text-white glass"
+            style={{ minHeight:48 }} />
           {searchQuery && <button onClick={() => handleSearch('')} aria-label="Clear search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xl leading-none" style={{ color:'var(--text-faint)' }}>×</button>}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-xl leading-none" style={{ color:'var(--text-faint)' }}>×</button>}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto" role="main" aria-label="Search results">
         {isSearching && (
           <div className="flex items-center justify-center gap-2 py-12" style={{ color:'var(--text-muted)', fontSize:13 }}>
             <span className="inline-block w-4 h-4 rounded-full" aria-hidden="true"
-              style={{ border:'2px solid var(--border)', borderTopColor:'var(--sun)', animation:'spin 0.7s linear infinite' }} />
+              style={{ border:'2px solid var(--border)', borderTopColor:'var(--accent)', animation:'spin 0.7s linear infinite' }} />
             Searching…
           </div>
         )}
@@ -65,14 +65,14 @@ export default function SearchScreen() {
           </p>
         )}
         {!isSearching && !searchQuery && (
-          <div className="flex flex-col items-center text-center pt-16 px-8 gap-3">
-            <div className="flex items-center justify-center rounded-2xl" aria-hidden="true"
-              style={{ width:68, height:68, background:'var(--surface-2)', border:'1px solid var(--border-dim)' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <div className="flex flex-col items-center text-center pt-16 px-8 gap-4">
+            <div className="flex items-center justify-center rounded-3xl glass" aria-hidden="true"
+              style={{ width:72, height:72 }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </div>
-            <p className="font-bold text-white" style={{ fontSize:16 }}>Find anything</p>
+            <p className="font-black text-white" style={{ fontSize:17 }}>Find anything</p>
             <p style={{ fontSize:13, color:'var(--text-muted)', lineHeight:1.6 }}>
-              Search series, anime, or movies. Tap <strong className="text-white">+</strong> to add instantly.
+              Search series, anime, or movies. Tap <strong className="gradient-text font-bold">+</strong> to add instantly.
             </p>
           </div>
         )}

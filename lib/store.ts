@@ -26,7 +26,7 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  tab: 'series', subTab: 'all',
+  tab: 'home', subTab: 'all',
   setTab: (t) => set({ tab: t, subTab: 'all', libSearch: '', sheet: null }),
   setSubTab: (t) => set({ subTab: t }),
   libSearch: '', setLibSearch: (q) => set({ libSearch: q }),

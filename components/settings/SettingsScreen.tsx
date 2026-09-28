@@ -88,29 +88,31 @@ export default function SettingsScreen() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto" style={{ background:'var(--bg)' }}>
-      <div className="flex flex-col gap-4 px-4 pt-4 pb-12">
-        <p className="font-bold uppercase tracking-widest" style={{ fontSize:11, color:'var(--text-faint)' }}>Preferences</p>
+    <div className="flex flex-col h-full overflow-y-auto" style={{ background:'transparent', paddingTop:'env(safe-area-inset-top,0px)' }}>
+      <div className="flex flex-col gap-5 px-4 pt-5 pb-12">
+        <p className="font-black uppercase tracking-widest gradient-text" style={{ fontSize:12 }}>Preferences</p>
 
         <Card title="Streaming Region">
           <div className="relative">
             <select value={settings.region} onChange={e=>{updateSettings({region:e.target.value});showToast(`Region → ${e.target.value}`)}}
-              aria-label="Streaming region" className="w-full appearance-none rounded-lg px-3 py-3 text-[14px] text-white pr-8"
+              aria-label="Streaming region" className="w-full appearance-none rounded-2xl px-4 py-3 text-[14px] text-white pr-8"
               style={{ background:'var(--surface-3)', border:'1px solid var(--border-dim)', minHeight:44 }}>
               {REGIONS.map(r=><option key={r.code} value={r.code}>{r.code} — {r.name}</option>)}
             </select>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" style={{ fontSize:11, color:'var(--text-faint)' }}>▾</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" style={{ fontSize:11, color:'var(--accent)' }}>▾</span>
           </div>
         </Card>
 
         <Card title="Export Library">
-          <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:10 }}>Download a complete JSON backup.</p>
-          <Btn label="Download library.json" icon="⬇" onClick={handleExport} />
+          <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12 }}>Download a complete JSON backup.</p>
+          <Btn label="Download library.json" icon={<DownloadIcon />} onClick={handleExport} />
         </Card>
 
         <Card title="Import Library">
-          <div className="rounded-lg p-3 mb-3" style={{ background:'rgba(252,219,50,0.07)', border:'1px solid rgba(252,219,50,0.22)' }}>
-            <p className="font-bold mb-2" style={{ fontSize:11, color:'var(--sun)' }}>⚠️ Read before importing</p>
+          <div className="rounded-2xl p-3.5 mb-3.5" style={{ background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.25)' }}>
+            <p className="font-bold mb-2 flex items-center gap-1.5" style={{ fontSize:11, color:'var(--accent)' }}>
+              <WarningIcon /> Read before importing
+            </p>
             <ol className="flex flex-col gap-1.5" role="list">
               {['Export a backup first.','Merges by ID — existing items are overwritten.','Accepts "id" or "tmdb_id" fields.','Posters & ratings sync automatically.'].map((s,i)=>(
                 <li key={i} className="flex gap-2" style={{ fontSize:11, color:'var(--text-muted)' }}>
@@ -119,7 +121,7 @@ export default function SettingsScreen() {
               ))}
             </ol>
           </div>
-          <Btn label="Choose .json to import" icon="⬆" onClick={()=>fileRef.current?.click()} />
+          <Btn label="Choose .json to import" icon={<UploadIcon />} onClick={()=>fileRef.current?.click()} />
           <input ref={fileRef} type="file" accept=".json" onChange={handleImport} aria-hidden="true" />
         </Card>
 
@@ -131,19 +133,41 @@ export default function SettingsScreen() {
 
 function Card({ title, children }: { title:string; children:React.ReactNode }) {
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background:'var(--surface)', border:'1px solid var(--border-dim)' }}>
-      <div className="px-4 py-3" style={{ borderBottom:'1px solid var(--border-dim)' }}>
+    <div className="rounded-3xl overflow-hidden glass">
+      <div className="px-4 py-3.5" style={{ borderBottom:'1px solid var(--border-dim)' }}>
         <p className="font-black text-white uppercase tracking-widest" style={{ fontSize:11 }}>{title}</p>
       </div>
-      <div className="px-4 py-3">{children}</div>
+      <div className="px-4 py-3.5">{children}</div>
     </div>
   )
 }
-function Btn({ label, icon, onClick }: { label:string; icon:string; onClick:()=>void }) {
+function Btn({ label, icon, onClick }: { label:string; icon:React.ReactNode; onClick:()=>void }) {
   return (
-    <button onClick={onClick} className="w-full flex items-center gap-3 rounded-lg font-medium text-white transition-opacity active:opacity-60"
+    <button onClick={onClick} className="w-full flex items-center gap-3 rounded-2xl font-semibold text-white transition-opacity active:opacity-60"
       style={{ background:'var(--surface-3)', border:'1px solid var(--border-dim)', padding:'12px 16px', fontSize:14, minHeight:44 }}>
-      <span style={{ fontSize:15 }} aria-hidden="true">{icon}</span>{label}
+      <span className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width:26, height:26, background:'var(--accent-grad)', color:'#1A1030' }} aria-hidden="true">{icon}</span>{label}
     </button>
+  )
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  )
+}
+function UploadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+  )
+}
+function WarningIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
   )
 }

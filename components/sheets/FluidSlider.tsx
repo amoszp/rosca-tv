@@ -88,18 +88,18 @@ export default function FluidSlider({ value, onChange, label, compact = false }:
             if (e.key === 'End')  onChange(MAX)
           }}
         >
-          {/* Background rail — high contrast against #141D38 */}
+          {/* Background rail — high contrast against surface */}
           <div className="absolute w-full rounded-full"
-            style={{ height: trackHeight, background: '#2A385B', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)' }} />
+            style={{ height: trackHeight, background: 'var(--surface-4)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)' }} />
 
-          {/* Filled rail — glowing sun yellow */}
+          {/* Filled rail — glowing gradient accent */}
           {value !== undefined && (
             <div className="absolute rounded-full"
               style={{
                 height: trackHeight,
                 width: `${pct}%`,
-                background: 'linear-gradient(90deg, rgba(252,219,50,0.6) 0%, #FCDB32 100%)',
-                boxShadow: '0 0 10px rgba(252,219,50,0.5)',
+                background: 'var(--accent-grad)',
+                boxShadow: 'var(--glow-accent)',
                 transition: dragging.current ? 'none' : 'width 0.06s ease',
               }} />
           )}
@@ -111,8 +111,8 @@ export default function FluidSlider({ value, onChange, label, compact = false }:
                 left: `${pct}%`,
                 transform: 'translateX(-50%)',
                 width: thumbSize, height: thumbSize,
-                background: '#FCDB32',
-                boxShadow: '0 0 0 3px rgba(252,219,50,0.28), 0 2px 8px rgba(0,0,0,0.5)',
+                background: 'var(--accent-grad)',
+                boxShadow: '0 0 0 3px rgba(249,115,22,0.28), 0 2px 8px rgba(0,0,0,0.5)',
                 transition: dragging.current ? 'none' : 'left 0.06s ease',
                 zIndex: 2,
               }} />
@@ -139,11 +139,11 @@ export default function FluidSlider({ value, onChange, label, compact = false }:
             onBlur={handleInputBlur}
             onKeyDown={handleInputKeyDown}
             aria-label={`${label || 'Rating'} value`}
-            className="rounded-lg text-center font-black tabular-nums text-white"
+            className="rounded-2xl text-center font-black tabular-nums text-white"
             style={{
               width: compact ? 48 : 56, height: compact ? 32 : 38,
-              background: value !== undefined ? 'rgba(252,219,50,0.12)' : 'var(--surface-3)',
-              border: `1.5px solid ${value !== undefined ? 'rgba(252,219,50,0.45)' : 'var(--border-dim)'}`,
+              background: value !== undefined ? 'rgba(249,115,22,0.14)' : 'var(--surface-3)',
+              border: `1.5px solid ${value !== undefined ? 'rgba(249,115,22,0.45)' : 'var(--border-dim)'}`,
               fontSize: compact ? 13 : 16,
             }}
           />

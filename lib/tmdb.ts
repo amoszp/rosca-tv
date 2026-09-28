@@ -55,6 +55,27 @@ export async function getTVSeasons(id: number): Promise<TMDBSeason[]> {
   } catch { return [] }
 }
 
+/* Home "Coming Soon" — reads TMDB's next_episode_to_air for a tracked series.
+   Returns the air date plus season/episode number if a new episode is scheduled, else null. */
+export interface NextEpisode { airDate: string; seasonNumber: number; episodeNumber: number }
+export async function getTVNextEpisode(id: number): Promise<NextEpisode | null> {
+  try {
+    const data = await apiFetch<{ next_episode_to_air?: { air_date?: string; season_number?: number; episode_number?: number } | null }>(`/tv/${id}`)
+    const n = data.next_episode_to_air
+    if (!n?.air_date) return null
+    return { airDate: n.air_date, seasonNumber: n.season_number ?? 0, episodeNumber: n.episode_number ?? 0 }
+  } catch { return null }
+}
+
+/* Home "Based on Your Interests" — TMDB's per-title recommendations,
+   tagged with media_type since the sub-resource response omits it. */
+export async function getRecommendations(mediaType: 'movie'|'tv', id: number): Promise<TMDBResult[]> {
+  try {
+    const data = await apiFetch<{ results: TMDBResult[] }>(`/${mediaType}/${id}/recommendations`)
+    return (data.results || []).map(r => ({ ...r, media_type: mediaType }))
+  } catch { return [] }
+}
+
 export interface TMDBItemDetails {
   id: number; poster_path: string | null; backdrop_path?: string | null
   title?: string; name?: string; vote_average?: number

@@ -4,45 +4,16 @@ import Image from 'next/image'
 import { useStore } from '@/lib/store'
 import {
   posterUrl, getTitle, getYear, formatRating,
-  getWatchProviders, getTVSeasons, getLibraryType,
+  getWatchProviders, getTVSeasons, getLibraryType, getRecommendations,
 } from '@/lib/tmdb'
 import { hydrateItem, combinedScore } from '@/lib/mediaSync'
-import type { TMDBProvider, TMDBSeason, LibraryItem, Status, DrawerTab } from '@/lib/types'
-import FluidSlider from './FluidSlider'
+import type { TMDBProvider, TMDBSeason, TMDBResult, LibraryItem, Status } from '@/lib/types'
+import { STATUS_STYLES } from '@/lib/statusStyles'
+import MediaTypeIcon from '@/components/ui/MediaTypeIcon'
+import PosterCard from '@/components/home/PosterCard'
+import CategorySheet from '@/components/home/CategorySheet'
 
 type LocalItem = LibraryItem & { _isNew?: boolean }
-
-/* ─────────────────────────────────────────────────────────────
-   SEASON OPACITY SCALE
-   Shared token used identically in both Rating and Episodes tabs
-   to guarantee visual consistency across views.
-   ───────────────────────────────────────────────────────────── */
-function getSeasonStyle(seasonNumber: number): React.CSSProperties {
-  if (seasonNumber === 1) return {
-    background: 'rgba(252,219,50,0.20)',
-    border:     '1px solid rgba(252,219,50,0.40)',
-  }
-  if (seasonNumber === 2) return {
-    background: 'rgba(252,219,50,0.12)',
-    border:     '1px solid rgba(252,219,50,0.25)',
-  }
-  if (seasonNumber === 3) return {
-    background: 'rgba(252,219,50,0.06)',
-    border:     '1px solid rgba(252,219,50,0.15)',
-  }
-  return {
-    background: 'rgba(252,219,50,0.03)',
-    border:     '1px solid rgba(252,219,50,0.10)',
-  }
-}
-
-/* Text colour for season headings — fades with the card opacity */
-function getSeasonTextColor(seasonNumber: number): string {
-  if (seasonNumber === 1) return '#FCDB32'
-  if (seasonNumber === 2) return 'rgba(252,219,50,0.80)'
-  if (seasonNumber === 3) return 'rgba(252,219,50,0.60)'
-  return 'rgba(252,219,50,0.45)'
-}
 
 /* ── Atoms ─────────────────────────────────────────────────── */
 const Divider = () => <div style={{ height: 1, background: 'var(--border-dim)' }} />
@@ -56,8 +27,8 @@ function Spinner() {
 
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke="rgba(148,163,184,0.7)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+      stroke="var(--text-faint)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
       aria-hidden="true"
       style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.22s ease', flexShrink: 0 }}>
       <polyline points="6 9 12 15 18 9" />
@@ -65,19 +36,12 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-function SectionHead({ label, open, onToggle, right, id }: {
-  label: string; open: boolean; onToggle: () => void; right?: string; id: string
-}) {
+function IconEdit() {
   return (
-    <button onClick={onToggle}
-      className="w-full flex items-center justify-between px-4 py-3 transition-opacity active:opacity-60"
-      aria-expanded={open} aria-controls={id}>
-      <div className="flex items-center gap-2">
-        <span className="font-black text-white uppercase tracking-widest" style={{ fontSize: 11 }}>{label}</span>
-        {right && <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{right}</span>}
-      </div>
-      <Chevron open={open} />
-    </button>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
   )
 }
 
@@ -88,31 +52,6 @@ function Collapse({ open, id, children }: { open: boolean; id: string; children:
       {children}
     </div>
   )
-}
-
-/* ── Status colour map ─────────────────────────────────────── */
-const STATUS_COLORS: Record<Status, { bg: string; text: string; dot: string; border: string; label: string }> = {
-  pending: {
-    bg:     'rgba(180,83,9,0.20)',
-    text:   '#fca56a',
-    dot:    '#d97706',
-    border: 'rgba(180,83,9,0.30)',
-    label:  'Pending',
-  },
-  watching: {
-    bg:     'rgba(16,185,129,0.15)',
-    text:   '#34d399',
-    dot:    '#10b981',
-    border: 'rgba(16,185,129,0.30)',
-    label:  'Watching',
-  },
-  watched: {
-    bg:     'rgba(99,102,241,0.20)',
-    text:   '#a5b4fc',
-    dot:    '#6366f1',
-    border: 'rgba(99,102,241,0.30)',
-    label:  'Watched',
-  },
 }
 
 /* ── Header Status Pill + Dropdown ────────────────────────── */
@@ -132,7 +71,7 @@ function StatusPill({ status, onChange }: {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const c = status ? STATUS_COLORS[status] : null
+  const c = status ? STATUS_STYLES[status] : null
   const pillStyle: React.CSSProperties = c
     ? { background: c.bg, color: c.text, border: `1px solid ${c.border}` }
     : { background: 'rgba(255,255,255,0.06)', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.10)' }
@@ -145,7 +84,7 @@ function StatusPill({ status, onChange }: {
         style={{ ...pillStyle, fontSize: 10, padding: '3px 10px 3px 8px', minHeight: 24 }}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={status ? `Status: ${STATUS_COLORS[status].label}` : 'Set status'}
+        aria-label={status ? `Status: ${STATUS_STYLES[status].label}` : 'Set status'}
       >
         {c
           ? <>
@@ -168,13 +107,13 @@ function StatusPill({ status, onChange }: {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-1.5 rounded-xl overflow-hidden animate-pop"
-          style={{ background: '#111829', border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,0.6)', minWidth: 148, zIndex: 99 }}
+          className="absolute right-0 top-full mt-1.5 rounded-2xl overflow-hidden animate-pop glass-strong"
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,0.6)', minWidth: 148, zIndex: 99 }}
           role="listbox"
           aria-label="Select status"
           onClick={e => e.stopPropagation()}
         >
-          {(Object.entries(STATUS_COLORS) as [Status, typeof STATUS_COLORS[Status]][]).map(([id, sc]) => {
+          {(Object.entries(STATUS_STYLES) as [Status, typeof STATUS_STYLES[Status]][]).map(([id, sc]) => {
             const isActive = status === id
             return (
               <button
@@ -229,29 +168,29 @@ function DirtyModal({ onSave, onDiscard, onCancel }: {
   return (
     <div className="absolute inset-0 z-[60] flex items-center justify-center px-6 animate-fade-in"
       style={{ background: 'rgba(0,0,0,0.72)' }}>
-      <div className="w-full max-w-sm rounded-2xl p-6 flex flex-col gap-4"
-        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-overlay)' }}>
+      <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4 glass-strong"
+        style={{ boxShadow: 'var(--shadow-overlay)' }}>
         <div className="flex flex-col gap-1">
-          <h3 className="font-black text-white" style={{ fontSize: 16 }}>¿Guardar cambios?</h3>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>Tienes cambios sin guardar en este título.</p>
+          <h3 className="font-black text-white" style={{ fontSize: 16 }}>Save changes?</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>You have unsaved changes on this title.</p>
         </div>
         <div className="flex flex-col gap-2">
           <button onClick={onSave}
-            className="w-full rounded-xl font-black text-black transition-opacity active:opacity-75"
-            style={{ padding: '13px 0', fontSize: 14, background: 'var(--sun)', minHeight: 44 }}>
-            Guardar y Salir
+            className="w-full rounded-2xl font-black transition-opacity active:opacity-80"
+            style={{ padding: '13px 0', fontSize: 14, background: 'var(--accent-grad)', color: '#1A1030', minHeight: 44, boxShadow: 'var(--glow-accent)' }}>
+            Save & Exit
           </button>
           <button onClick={onDiscard}
-            className="w-full rounded-xl font-bold transition-opacity active:opacity-75"
-            style={{ padding: '13px 0', fontSize: 14, color: '#ef8c86', background: 'rgba(255,69,58,0.08)', border: '1px solid rgba(255,69,58,0.20)', minHeight: 44 }}>
-            Descartar cambios
+            className="w-full rounded-2xl font-bold transition-opacity active:opacity-75"
+            style={{ padding: '13px 0', fontSize: 14, color: '#fb7185', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.20)', minHeight: 44 }}>
+            Discard changes
           </button>
           {/* CRITICAL: stopPropagation + preventDefault prevent backdrop from closing the drawer */}
           <button
             onClick={e => { e.stopPropagation(); e.preventDefault(); onCancel(e) }}
-            className="w-full rounded-xl font-semibold transition-opacity active:opacity-75"
-            style={{ padding: '13px 0', fontSize: 14, color: 'rgba(148,163,184,0.8)', background: 'var(--surface-3)', border: '1px solid var(--border-dim)', minHeight: 44 }}>
-            Cancelar y seguir editando
+            className="w-full rounded-2xl font-semibold transition-opacity active:opacity-75"
+            style={{ padding: '13px 0', fontSize: 14, color: 'var(--text-muted)', background: 'var(--surface-3)', border: '1px solid var(--border-dim)', minHeight: 44 }}>
+            Cancel and keep editing
           </button>
         </div>
       </div>
@@ -259,7 +198,7 @@ function DirtyModal({ onSave, onDiscard, onCancel }: {
   )
 }
 
-/* ── Critic ratings ────────────────────────────────────────── */
+/* ── Critic ratings — equal-weight stat cards ────────────────── */
 function CriticRatings({ tmdbRating, imdbRating, rottenTomatoes, metacritic, rated, runtime, loading }: {
   tmdbRating: string; imdbRating?: string; rottenTomatoes?: string
   metacritic?: string; rated?: string; runtime?: string; loading: boolean
@@ -272,64 +211,60 @@ function CriticRatings({ tmdbRating, imdbRating, rottenTomatoes, metacritic, rat
       {loading && !hasAny && (
         <div className="flex items-center gap-2">
           <Spinner />
-          <div className="flex gap-2">
-            {[60, 52, 56].map((w, i) => <div key={i} className="skeleton rounded-lg" style={{ width: w, height: 28 }} aria-hidden="true" />)}
+          <div className="flex gap-2 flex-1">
+            {[1, 1, 1].map((_, i) => <div key={i} className="skeleton rounded-2xl flex-1" style={{ height: 58 }} aria-hidden="true" />)}
           </div>
         </div>
       )}
-      <div className="flex flex-wrap gap-2" role="list" aria-label="Critic ratings">
+      <div className="grid grid-cols-2 gap-1.5" role="list" aria-label="Critic ratings">
         {/* TMDB #01B4E4 — preserved brand colour */}
-        <div role="listitem" className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-          style={{ background: 'rgba(1,180,228,0.12)', border: '1px solid rgba(1,180,228,0.28)' }}
+        <div role="listitem" className="flex flex-col items-center gap-0.5 rounded-xl"
+          style={{ padding: '7px 4px', background: 'rgba(1,180,228,0.10)', border: '1px solid rgba(1,180,228,0.25)' }}
           aria-label={`TMDB ${tmdbRating}`}>
-          <span style={{ fontSize: 11, color: '#01B4E4' }} aria-hidden="true">★</span>
-          <span className="font-bold tabular-nums" style={{ fontSize: 12, color: '#01B4E4' }}>{tmdbRating}</span>
-          <span style={{ fontSize: 9, color: 'rgba(1,180,228,0.55)', fontWeight: 700 }}>TMDB</span>
+          <span className="font-black uppercase tracking-wide" style={{ fontSize: 7.5, color: 'rgba(1,180,228,0.75)' }}>TMDB</span>
+          <span className="font-black tabular-nums" style={{ fontSize: 13, color: '#01B4E4' }}>{tmdbRating}</span>
         </div>
         {/* IMDb #F5C518 — preserved brand colour */}
         {imdbRating && (
-          <div role="listitem" className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-            style={{ background: 'rgba(245,197,24,0.12)', border: '1px solid rgba(245,197,24,0.30)' }}
+          <div role="listitem" className="flex flex-col items-center gap-0.5 rounded-xl"
+            style={{ padding: '7px 4px', background: 'rgba(245,197,24,0.10)', border: '1px solid rgba(245,197,24,0.28)' }}
             aria-label={`IMDb ${imdbRating}`}>
-            <div className="flex items-center justify-center rounded font-black select-none"
-              style={{ width: 26, height: 13, background: '#F5C518', color: '#000', fontSize: 7 }} aria-hidden="true">IMDb</div>
-            <span className="font-bold tabular-nums" style={{ fontSize: 12, color: '#F5C518' }}>
-              {imdbRating}<span style={{ fontSize: 9, color: 'rgba(245,197,24,0.55)' }}>/10</span>
+            <span className="font-black uppercase tracking-wide" style={{ fontSize: 7.5, color: 'rgba(245,197,24,0.80)' }}>IMDb</span>
+            <span className="font-black tabular-nums" style={{ fontSize: 13, color: '#F5C518' }}>
+              {imdbRating}<span style={{ fontSize: 8, color: 'rgba(245,197,24,0.55)' }}>/10</span>
             </span>
           </div>
         )}
         {/* RT #FA320A — preserved brand colour */}
         {rtNum && (
-          <div role="listitem" className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-            style={{ background: 'rgba(250,50,10,0.12)', border: '1px solid rgba(250,50,10,0.28)' }}
+          <div role="listitem" className="flex flex-col items-center gap-0.5 rounded-xl"
+            style={{ padding: '7px 4px', background: 'rgba(250,50,10,0.10)', border: '1px solid rgba(250,50,10,0.25)' }}
             aria-label={`Rotten Tomatoes ${rtNum}%`}>
-            <span style={{ fontSize: 12, lineHeight: 1 }} aria-hidden="true">🍅</span>
-            <span className="font-bold tabular-nums" style={{ fontSize: 12, color: '#FA320A' }}>
-              {rtNum}<span style={{ fontSize: 9, color: 'rgba(250,50,10,0.55)' }}>%</span>
+            <span className="font-black uppercase tracking-wide text-center" style={{ fontSize: 7.5, color: 'rgba(250,50,10,0.75)' }}>RT</span>
+            <span className="font-black tabular-nums" style={{ fontSize: 13, color: '#FA320A' }}>
+              {rtNum}<span style={{ fontSize: 8, color: 'rgba(250,50,10,0.55)' }}>%</span>
             </span>
           </div>
         )}
         {/* MC #6CCE23 — preserved brand colour */}
         {mcNum && (
-          <div role="listitem" className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-            style={{ background: 'rgba(108,206,35,0.10)', border: '1px solid rgba(108,206,35,0.28)' }}
+          <div role="listitem" className="flex flex-col items-center gap-0.5 rounded-xl"
+            style={{ padding: '7px 4px', background: 'rgba(108,206,35,0.10)', border: '1px solid rgba(108,206,35,0.25)' }}
             aria-label={`Metacritic ${mcNum}`}>
-            <div className="flex items-center justify-center rounded font-black select-none"
-              style={{ width: 13, height: 13, background: '#6CCE23', color: '#000', fontSize: 7 }} aria-hidden="true">M</div>
-            <span className="font-bold tabular-nums" style={{ fontSize: 12, color: '#6CCE23' }}>{mcNum}</span>
-            <span style={{ fontSize: 9, color: 'rgba(108,206,35,0.55)', fontWeight: 700 }}>MC</span>
+            <span className="font-black uppercase tracking-wide" style={{ fontSize: 7.5, color: 'rgba(108,206,35,0.75)' }}>MC</span>
+            <span className="font-black tabular-nums" style={{ fontSize: 13, color: '#6CCE23' }}>{mcNum}</span>
           </div>
         )}
       </div>
       {(rated || runtime) && (
         <div className="flex items-center gap-2 flex-wrap">
           {rated && (
-            <span className="rounded font-bold uppercase"
-              style={{ fontSize: 9, color: 'var(--text-muted)', background: 'var(--surface-3)', padding: '2px 6px', letterSpacing: '0.05em', border: '1px solid var(--border-dim)' }}>
+            <span className="rounded-lg font-bold uppercase"
+              style={{ fontSize: 9, color: 'var(--text-muted)', background: 'var(--surface-3)', padding: '3px 8px', letterSpacing: '0.05em', border: '1px solid var(--border-dim)' }}>
               {rated}
             </span>
           )}
-          {runtime && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{runtime}</span>}
+          {runtime && <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 600 }}>{runtime}</span>}
         </div>
       )}
       {!loading && !hasAny && <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>No critic scores available.</p>}
@@ -337,161 +272,38 @@ function CriticRatings({ tmdbRating, imdbRating, rottenTomatoes, metacritic, rat
   )
 }
 
-/* ─────────────────────────────────────────────────────────────
-   TAB 2: RATING TAB
-   ───────────────────────────────────────────────────────────── */
-
-/* Hero Overall Rating Card — dark slate base, yellow accent border */
-function HeroRatingCard({ value, onChange, seasonAvg, isTV }: {
+/* Compact rating row — number + inline slider, shared by the overall rating
+   (Overview tab) and each season's rating (inside its Episodes card). */
+function RatingRow({ label, value, onChange, caption, onCollapse }: {
+  label: string
   value: number | undefined
   onChange: (v: number | undefined) => void
-  seasonAvg?: number
-  isTV: boolean
+  caption?: string
+  onCollapse?: () => void
 }) {
   return (
-    <div
-      className="rounded-2xl p-4"
-      style={{
-        background: '#0D1326',
-        border: '2px solid rgba(252,219,50,0.60)',
-        boxShadow: '0 4px 20px rgba(252,219,50,0.10), 0 2px 8px rgba(0,0,0,0.50)',
-      }}
-      aria-label="Overall rating card"
-    >
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="font-black uppercase tracking-widest" style={{ fontSize: 10, color: 'rgba(252,219,50,0.70)' }}>
-          {isTV ? 'Rating General' : 'Mi Puntuación'}
-        </span>
-        {value !== undefined ? (
-          <span
-            className="font-black tabular-nums rounded-lg px-3 py-1"
-            style={{ background: '#FCDB32', color: '#0D1326', fontSize: 16, lineHeight: 1 }}
-            aria-label={`Score ${value.toFixed(1)}`}
-          >
-            {value.toFixed(1)}
-          </span>
-        ) : (
-          <span
-            className="font-black tabular-nums rounded-lg px-3 py-1"
-            style={{ background: 'rgba(252,219,50,0.10)', color: 'rgba(252,219,50,0.35)', fontSize: 16, lineHeight: 1, border: '1px solid rgba(252,219,50,0.20)' }}
-            aria-label="No score set"
-          >
-            —
-          </span>
-        )}
-      </div>
-
-      {/* Slider with dark track and yellow fill/thumb */}
-      <HeroSlider value={value} onChange={onChange} />
-
-      {isTV && seasonAvg !== undefined && (
-        <p className="mt-2.5 font-semibold" style={{ fontSize: 10, color: 'rgba(252,219,50,0.40)' }}>
-          Promedio por temporada: {seasonAvg.toFixed(1)} · tu puntuación global es independiente
-        </p>
-      )}
-    </div>
-  )
-}
-
-/* Custom slider with dark track for use inside the yellow hero card */
-function HeroSlider({ value, onChange }: {
-  value: number | undefined
-  onChange: (v: number | undefined) => void
-}) {
-  const trackRef  = useRef<HTMLDivElement>(null)
-  const dragging  = useRef(false)
-  const cbRef     = useRef(onChange)
-  useEffect(() => { cbRef.current = onChange }, [onChange])
-
-  const MIN = 1.0; const MAX = 10.0; const STEP = 0.1
-  const snap = (v: number) => Math.max(MIN, Math.min(MAX, Math.round(v / STEP) * STEP))
-  const pct  = value !== undefined ? ((value - MIN) / (MAX - MIN)) * 100 : 0
-
-  const applyRatio = useCallback((clientX: number) => {
-    if (!trackRef.current) return
-    const rect  = trackRef.current.getBoundingClientRect()
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-    cbRef.current(snap(MIN + ratio * (MAX - MIN)))
-  }, [])
-
-  return (
-    <div>
-      <div
-        className="relative flex items-center w-full"
-        style={{ height: 34, touchAction: 'none', cursor: 'pointer' }}
-        ref={trackRef}
-        role="slider"
-        aria-valuemin={MIN} aria-valuemax={MAX} aria-valuenow={value} aria-label="Overall rating"
-        tabIndex={0}
-        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; applyRatio(e.clientX) }}
-        onPointerMove={e => { if (!dragging.current) return; applyRatio(e.clientX) }}
-        onPointerUp={() => { dragging.current = false }}
-        onPointerCancel={() => { dragging.current = false }}
-        onKeyDown={e => {
-          if (e.key === 'ArrowRight') onChange(snap((value ?? MIN) + STEP))
-          if (e.key === 'ArrowLeft')  onChange(snap((value ?? MIN) - STEP))
-          if (e.key === 'Home') onChange(MIN)
-          if (e.key === 'End')  onChange(MAX)
-        }}
-      >
-        {/* Dark track rail */}
-        <div className="absolute w-full rounded-full"
-          style={{ height: 8, background: '#1E2942', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.50)' }} />
-
-        {/* Yellow glowing fill */}
-        {value !== undefined && (
-          <div className="absolute rounded-full"
-            style={{
-              height: 8,
-              width: `${pct}%`,
-              background: 'linear-gradient(90deg, rgba(252,219,50,0.65) 0%, #FCDB32 100%)',
-              boxShadow: '0 0 8px rgba(252,219,50,0.45)',
-              transition: dragging.current ? 'none' : 'width 0.06s ease',
-            }} />
-        )}
-
-        {/* Yellow thumb knob */}
-        {value !== undefined && (
-          <div className="absolute rounded-full"
-            style={{
-              left: `${pct}%`,
-              transform: 'translateX(-50%)',
-              width: 22, height: 22,
-              background: '#FCDB32',
-              boxShadow: '0 0 0 3px rgba(252,219,50,0.25), 0 2px 8px rgba(0,0,0,0.60)',
-              transition: dragging.current ? 'none' : 'left 0.06s ease',
-              zIndex: 2,
-            }} />
-        )}
-      </div>
-
-      {/* Min/max labels */}
-      <div className="flex justify-between mt-0.5" aria-hidden="true">
-        <span style={{ fontSize: 9, color: 'rgba(252,219,50,0.35)', fontWeight: 600 }}>1.0</span>
-        <span style={{ fontSize: 9, color: 'rgba(252,219,50,0.35)', fontWeight: 600 }}>10.0</span>
-      </div>
-
-      {value !== undefined && (
-        <button
-          onClick={() => onChange(undefined)}
-          className="mt-1 transition-opacity active:opacity-50"
-          style={{ fontSize: 9, color: 'rgba(252,219,50,0.40)', fontWeight: 600 }}
-          aria-label="Clear rating"
-        >
-          Borrar ✕
+    <div className="rounded-3xl p-4 flex flex-col gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
+      {onCollapse && (
+        <button onClick={onCollapse} className="self-end font-bold uppercase tracking-wide transition-opacity active:opacity-60"
+          style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+          Done ▴
         </button>
       )}
+      <div className="flex items-center gap-3.5">
+        <span className="font-black tabular-nums flex-shrink-0 text-center" style={{ fontSize: 20, width: 44, color: value !== undefined ? 'var(--accent)' : 'var(--text-faint)' }}>
+          {value !== undefined ? value.toFixed(1) : '—'}
+        </span>
+        <div className="flex-1">
+          <SlimSeasonSlider value={value} onChange={onChange} label={label} />
+        </div>
+      </div>
+      {caption && <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{caption}</p>}
     </div>
   )
 }
 
-/* ── SlimSeasonSlider ──────────────────────────────────────────
-   Custom slim slider for season rating cards:
-   · 6px track height, 18px thumb
-   · NO "drag to rate" / placeholder text (Fix 3)
-   · Dark rail (#1E2942), yellow glowing fill, yellow thumb
-   ─────────────────────────────────────────────────────────── */
+/* Slim slider for a rating row — inline with its Clear button; used for
+   both the overall rating and each season's rating. */
 function SlimSeasonSlider({ value, onChange, label }: {
   value: number | undefined
   onChange: (v: number | undefined) => void
@@ -514,11 +326,10 @@ function SlimSeasonSlider({ value, onChange, label }: {
   }, [])
 
   return (
-    <div className="flex flex-col gap-1">
-      {/* Track area */}
+    <div className="flex items-center gap-2.5">
       <div
-        className="relative flex items-center w-full"
-        style={{ height: 28, touchAction: 'none', cursor: 'pointer' }}
+        className="relative flex items-center flex-1"
+        style={{ height: 24, touchAction: 'none', cursor: 'pointer' }}
         ref={trackRef}
         role="slider"
         aria-valuemin={MIN} aria-valuemax={MAX} aria-valuenow={value}
@@ -535,164 +346,39 @@ function SlimSeasonSlider({ value, onChange, label }: {
           if (e.key === 'End')  onChange(MAX)
         }}
       >
-        {/* Dark rail — always visible, clean, no text */}
-        <div className="absolute w-full rounded-full"
-          style={{ height: 6, background: '#1E2942', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.40)' }} />
-
-        {/* Yellow glowing fill */}
+        <div className="absolute w-full rounded-full" style={{ height: 6, background: 'var(--surface-4)' }} />
+        {value !== undefined && (
+          <div className="absolute rounded-full"
+            style={{ height: 6, width: `${pct}%`, background: 'var(--accent-grad)', transition: dragging.current ? 'none' : 'width 0.06s ease' }} />
+        )}
         {value !== undefined && (
           <div className="absolute rounded-full"
             style={{
-              height: 6,
-              width: `${pct}%`,
-              background: 'linear-gradient(90deg, rgba(252,219,50,0.55) 0%, #FCDB32 100%)',
-              boxShadow: '0 0 6px rgba(252,219,50,0.40)',
-              transition: dragging.current ? 'none' : 'width 0.06s ease',
+              left: `${pct}%`, transform: 'translateX(-50%)',
+              width: 16, height: 16, background: '#fff',
+              boxShadow: '0 0 0 3px rgba(249,115,22,0.28), 0 1px 6px rgba(0,0,0,0.45)',
+              transition: dragging.current ? 'none' : 'left 0.06s ease', zIndex: 2,
             }} />
         )}
-
-        {/* Yellow thumb — 18px, appears only when value is set */}
-        {value !== undefined && (
-          <div className="absolute rounded-full"
-            style={{
-              left: `${pct}%`,
-              transform: 'translateX(-50%)',
-              width: 18, height: 18,
-              background: '#FCDB32',
-              boxShadow: '0 0 0 2px rgba(252,219,50,0.22), 0 1px 6px rgba(0,0,0,0.55)',
-              transition: dragging.current ? 'none' : 'left 0.06s ease',
-              zIndex: 2,
-            }} />
-        )}
-        {/* No placeholder text — clean empty rail when unrated (Fix 3) */}
       </div>
-
-      {/* Min/max + clear */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1" aria-hidden="true">
-          <span style={{ fontSize: 8, color: 'rgba(252,219,50,0.30)', fontWeight: 600 }}>1.0</span>
-          <span style={{ fontSize: 8, color: 'rgba(252,219,50,0.15)' }}>·</span>
-          <span style={{ fontSize: 8, color: 'rgba(252,219,50,0.30)', fontWeight: 600 }}>10.0</span>
-        </div>
-        {value !== undefined && (
-          <button
-            onClick={() => onChange(undefined)}
-            className="transition-opacity active:opacity-50"
-            style={{ fontSize: 8, color: 'rgba(252,219,50,0.35)', fontWeight: 600 }}
-            aria-label={`Clear ${label} rating`}
-          >
-            Borrar ✕
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* Season Rating Card — slim (p-3), single score in header, no duplicate badge beside slider */
-function SeasonRatingCard({ season, rating, onRating }: {
-  season: TMDBSeason
-  rating: number | undefined
-  onRating: (v: number | undefined) => void
-}) {
-  const sNum      = season.season_number
-  const label     = season.name || `Temporada ${sNum}`
-  const textColor = getSeasonTextColor(sNum)
-
-  return (
-    <div className="rounded-xl p-3" style={getSeasonStyle(sNum)}>
-      {/* Header: label + episode count on left, single score badge on right */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <span className="font-black uppercase tracking-widest" style={{ fontSize: 9, color: textColor }}>
-            {label}
-          </span>
-          {season.episode_count > 0 && (
-            <span style={{ fontSize: 9, color: 'rgba(252,219,50,0.30)' }}>
-              · {season.episode_count} ep
-            </span>
-          )}
-        </div>
-        {/* Single score display — ★ N.N when rated, — when not. Never duplicated. */}
-        <span
-          className="font-black tabular-nums rounded-md px-2 py-0.5"
-          style={{
-            fontSize: 10,
-            color:      rating !== undefined ? textColor : 'rgba(252,219,50,0.25)',
-            background: rating !== undefined ? 'rgba(252,219,50,0.10)' : 'transparent',
-            border:     rating !== undefined ? `1px solid rgba(252,219,50,0.20)` : 'none',
-          }}
+      {value !== undefined && (
+        <button
+          onClick={() => onChange(undefined)}
+          className="flex-shrink-0 transition-opacity active:opacity-60"
+          style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700 }}
+          aria-label={`Clear ${label} rating`}
         >
-          {rating !== undefined ? `★ ${rating.toFixed(1)}` : '—'}
-        </span>
-      </div>
-      {/* Slim FluidSlider — compact prop keeps track at 6px and thumb at 18px */}
-      <SlimSeasonSlider value={rating} onChange={onRating} label={label} />
-    </div>
-  )
-}
-
-/* Rating tab root */
-function RatingTab({
-  localItem, seasons, loadingData, isTV, seasonAvg,
-  onGlobalRating, onSeasonRating,
-}: {
-  localItem: LocalItem
-  seasons: TMDBSeason[]
-  loadingData: boolean
-  isTV: boolean
-  seasonAvg: number | undefined
-  onGlobalRating: (v: number | undefined) => void
-  onSeasonRating: (sNum: number, v: number | undefined) => void
-}) {
-  return (
-    <div id="dtab-rating" role="tabpanel" aria-label="Rating" className="px-4 flex flex-col gap-3 pb-4">
-
-      {/* ── SECTION A: Hero Overall Rating ── */}
-      <HeroRatingCard
-        value={localItem.userRating}
-        onChange={onGlobalRating}
-        seasonAvg={seasonAvg}
-        isTV={isTV}
-      />
-
-      {/* ── SECTION B: Season Ratings (TV only) — decreasing opacity scale ── */}
-      {isTV && (
-        <>
-          {loadingData && seasons.length === 0 && (
-            <div className="flex items-center gap-2" style={{ color: 'var(--text-faint)', fontSize: 12 }}>
-              <Spinner /> Cargando temporadas…
-            </div>
-          )}
-          {!loadingData && seasons.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-faint)', textAlign: 'center', padding: '16px 0' }}>
-              Sin datos de temporadas.
-            </p>
-          )}
-          {seasons.slice(0, 15).map(season => {
-            const sd = localItem.seasonData?.[String(season.season_number)] ?? { episodes: {} }
-            return (
-              <SeasonRatingCard
-                key={season.season_number}
-                season={season}
-                rating={sd.rating}
-                onRating={v => onSeasonRating(season.season_number, v)}
-              />
-            )
-          })}
-          {seasons.length > 15 && (
-            <p style={{ fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>
-              Mostrando 15 de {seasons.length} temporadas
-            </p>
-          )}
-        </>
+          Clear
+        </button>
       )}
     </div>
   )
 }
 
 /* ─────────────────────────────────────────────────────────────
-   TAB 3: EPISODES TAB
+   EPISODES TAB — now also owns each season's rating (see
+   SeasonEpisodeCard below), since tracking and rating a season are
+   the same "about this season" job and used to live in two tabs.
    ───────────────────────────────────────────────────────────── */
 
 /* Compact episode toggle button
@@ -712,14 +398,15 @@ function EpButton({ ep, watched, onClick, onDoubleClick }: {
       onClick={onClick}
       onDoubleClick={e => { e.preventDefault(); onDoubleClick() }}
       onContextMenu={e => { e.preventDefault(); onDoubleClick() }}
-      className="ep-btn rounded-md border font-bold tabular-nums transition-all select-none"
+      className="ep-btn rounded-xl border font-bold tabular-nums transition-all select-none"
       aria-label={`Ep ${ep}${watched ? ' (watched)' : ''} — double-tap to fill up to here`}
       aria-pressed={watched}
       style={{
-        width: 30, height: 30, fontSize: 10,
-        background:  watched ? 'rgba(252,219,50,0.18)' : 'rgba(255,255,255,0.04)',
-        borderColor: watched ? 'rgba(252,219,50,0.50)' : 'rgba(255,255,255,0.08)',
-        color:       watched ? '#FCDB32'               : 'rgba(148,163,184,0.45)',
+        width: 34, height: 34, fontSize: 11,
+        background:  watched ? 'var(--accent-grad)' : 'var(--surface-3)',
+        borderColor: watched ? 'transparent' : 'var(--border-dim)',
+        color:       watched ? '#1A1030' : 'var(--text-muted)',
+        boxShadow:   watched ? 'var(--glow-accent)' : 'none',
         WebkitTouchCallout: 'none',
         WebkitUserSelect:   'none',
       } as React.CSSProperties}
@@ -733,50 +420,44 @@ function EpButton({ ep, watched, onClick, onDoubleClick }: {
 function EpisodeProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? (done / total) * 100 : 0
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span style={{ fontSize: 9, color: 'rgba(252,219,50,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Progreso
-        </span>
-        <span style={{ fontSize: 10, color: 'rgba(252,219,50,0.80)', fontWeight: 700 }}>
-          {done} <span style={{ color: 'rgba(252,219,50,0.40)' }}>/ {total}</span>
-        </span>
-      </div>
-      <div className="w-full rounded-full" style={{ height: 5, background: 'rgba(252,219,50,0.10)' }}>
+    <div className="flex items-center gap-3">
+      <div className="flex-1 rounded-full" style={{ height: 6, background: 'var(--surface-4)' }}>
         <div
           className="rounded-full"
           style={{
-            height: 5,
+            height: 6,
             width: `${pct}%`,
-            background: pct === 100
-              ? 'linear-gradient(90deg, rgba(252,219,50,0.7) 0%, #FCDB32 100%)'
-              : 'linear-gradient(90deg, rgba(252,219,50,0.4) 0%, rgba(252,219,50,0.75) 100%)',
-            boxShadow: pct > 0 ? '0 0 6px rgba(252,219,50,0.35)' : 'none',
+            background: 'var(--accent-grad)',
+            boxShadow: pct > 0 ? 'var(--glow-accent)' : 'none',
             transition: 'width 0.25s ease',
           }}
           aria-label={`${Math.round(pct)}% watched`}
         />
       </div>
+      <span className="font-bold tabular-nums flex-shrink-0" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+        {done}/{total}
+      </span>
     </div>
   )
 }
 
-/* Season episode card — uses the shared opacity scale */
-function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating }: {
+/* Season episode card — uniform surface style, accordion body */
+function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onRating }: {
   season: TMDBSeason
   episodes: Record<string, boolean>
   onToggle: (ep: number) => void
   onAutoFill: (ep: number) => void
   rating: number | undefined
+  onRating: (v: number | undefined) => void
 }) {
   const [open,  setOpen]  = useState(true)
   const [shown, setShown] = useState(Math.min(season.episode_count, 40))
 
   const sNum  = season.season_number
-  const label = season.name || `Temporada ${sNum}`
-  const textColor = getSeasonTextColor(sNum)
+  const label = season.name || `Season ${sNum}`
   const done  = Object.values(episodes).filter(Boolean).length
   const remaining = season.episode_count - shown
+  const complete  = season.episode_count > 0 && done === season.episode_count
 
   // Double-tap detection: track the last tap time and episode per card
   const lastTap = useRef<{ ep: number; time: number } | null>(null)
@@ -804,32 +485,28 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating }: {
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={getSeasonStyle(sNum)}>
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
       {/* Season accordion header */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 transition-opacity active:opacity-70"
+        className="w-full flex items-center justify-between px-4 py-3.5 transition-opacity active:opacity-70"
         aria-expanded={open}
         aria-controls={`ep-s-${sNum}`}
       >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <span className="font-black truncate" style={{ fontSize: 12, color: textColor }}>{label}</span>
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <span className="rounded-full flex-shrink-0" style={{ width: 7, height: 7, background: complete ? 'var(--accent)' : 'var(--border)' }} aria-hidden="true" />
+          <span className="font-bold text-white truncate" style={{ fontSize: 13 }}>{label}</span>
           {rating !== undefined && (
-            <span className="font-bold tabular-nums flex-shrink-0" style={{ fontSize: 9, color: 'rgba(252,219,50,0.55)' }}>
+            <span className="font-bold tabular-nums flex-shrink-0" style={{ fontSize: 10, color: 'var(--accent)' }}>
               ★ {rating.toFixed(1)}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span style={{ fontSize: 10, fontWeight: 700, color: done === season.episode_count ? textColor : 'rgba(252,219,50,0.40)' }}>
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <span className="font-bold tabular-nums" style={{ fontSize: 11, color: complete ? 'var(--accent)' : 'var(--text-faint)' }}>
             {done}/{season.episode_count}
           </span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-            stroke={textColor} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
-            aria-hidden="true"
-            style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.22s ease', opacity: 0.7 }}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <Chevron open={open} />
         </div>
       </button>
 
@@ -838,19 +515,29 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating }: {
         id={`ep-s-${sNum}`}
         style={{ overflow: 'hidden', maxHeight: open ? 9999 : 0, opacity: open ? 1 : 0, transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease' }}
       >
-        <div className="px-4 pb-4 flex flex-col gap-3">
+        <div className="px-4 pb-4 flex flex-col gap-3.5">
           {/* Progress bar */}
           <EpisodeProgressBar done={done} total={season.episode_count} />
 
           {/* Hint */}
-          <p style={{ fontSize: 9, color: 'rgba(252,219,50,0.35)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            Toca para marcar · doble toque para rellenar hasta aquí
+          <p style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600 }}>
+            Tap to mark · double-tap to fill up to here
           </p>
+
+          {/* Season rating */}
+          <div className="flex items-center gap-2.5">
+            <span className="font-black tabular-nums flex-shrink-0 text-center" style={{ fontSize: 13, width: 32, color: rating !== undefined ? 'var(--accent)' : 'var(--text-faint)' }}>
+              {rating !== undefined ? rating.toFixed(1) : '—'}
+            </span>
+            <div className="flex-1">
+              <SlimSeasonSlider value={rating} onChange={onRating} label={label} />
+            </div>
+          </div>
 
           {/* Episode grid
               · Single tap  → toggle that episode (handleEpClick double-tap-aware)
               · Double-click / right-click / long-press → bulk-fill up to that episode */}
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label={`${label} episode checklist`}>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={`${label} episode checklist`}>
             {Array.from({ length: shown }, (_, i) => i + 1).map(ep => (
               <EpButton
                 key={ep}
@@ -866,15 +553,15 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating }: {
           {remaining > 0 && (
             <button
               onClick={() => setShown(season.episode_count)}
-              className="w-full flex items-center justify-center gap-1.5 rounded-lg transition-opacity active:opacity-60"
-              style={{ padding: '7px 12px', background: 'rgba(252,219,50,0.06)', border: '1px solid rgba(252,219,50,0.15)' }}
+              className="w-full flex items-center justify-center gap-1.5 rounded-xl transition-opacity active:opacity-70"
+              style={{ padding: '9px 12px', background: 'var(--surface-3)', border: '1px solid var(--border-dim)' }}
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(252,219,50,0.55)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                stroke="var(--text-muted)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
-              <span style={{ fontSize: 10, color: 'rgba(252,219,50,0.55)', fontWeight: 600 }}>
-                Mostrar más (+{remaining} ep{remaining !== 1 ? 's' : ''})
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>
+                Show more (+{remaining} ep{remaining !== 1 ? 's' : ''})
               </span>
             </button>
           )}
@@ -884,9 +571,9 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating }: {
             <button
               onClick={() => setShown(40)}
               className="w-full text-center transition-opacity active:opacity-60"
-              style={{ fontSize: 9, color: 'rgba(252,219,50,0.35)', padding: '3px' }}
+              style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px' }}
             >
-              Mostrar menos ↑
+              Show less ↑
             </button>
           )}
         </div>
@@ -898,7 +585,7 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating }: {
 /* Episodes tab root */
 function EpisodesTab({
   localItem, seasons, loadingData, isTV,
-  onToggleEp, onAutoFill,
+  onToggleEp, onAutoFill, onSeasonRating,
 }: {
   localItem: LocalItem
   seasons: TMDBSeason[]
@@ -906,27 +593,30 @@ function EpisodesTab({
   isTV: boolean
   onToggleEp: (sNum: number, ep: number) => void
   onAutoFill: (sNum: number, ep: number) => void
+  onSeasonRating: (sNum: number, v: number | undefined) => void
 }) {
   if (!isTV) {
     return (
       <div id="dtab-episodes" role="tabpanel" aria-label="Episodes" className="px-4 pb-4">
-        <p style={{ fontSize: 13, color: 'var(--text-faint)', textAlign: 'center', padding: '32px 0' }}>
-          El seguimiento de episodios es solo para series.
-        </p>
+        <div className="rounded-2xl p-6 text-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>
+            Episode tracking is only available for series.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div id="dtab-episodes" role="tabpanel" aria-label="Episodes" className="px-4 flex flex-col gap-3 pb-4">
+    <div id="dtab-episodes" role="tabpanel" aria-label="Episodes" className="px-4 flex flex-col gap-3.5 pb-4">
       {loadingData && seasons.length === 0 && (
         <div className="flex items-center gap-2" style={{ color: 'var(--text-faint)', fontSize: 12 }}>
-          <Spinner /> Cargando temporadas…
+          <Spinner /> Loading seasons…
         </div>
       )}
       {!loadingData && seasons.length === 0 && (
         <p style={{ fontSize: 13, color: 'var(--text-faint)', textAlign: 'center', padding: '24px 0' }}>
-          Sin datos de temporadas.
+          No season data available.
         </p>
       )}
       {seasons.slice(0, 15).map(season => {
@@ -939,12 +629,13 @@ function EpisodesTab({
             rating={sd.rating}
             onToggle={ep  => onToggleEp(season.season_number, ep)}
             onAutoFill={ep => onAutoFill(season.season_number, ep)}
+            onRating={v => onSeasonRating(season.season_number, v)}
           />
         )
       })}
       {seasons.length > 15 && (
         <p style={{ fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>
-          Mostrando 15 de {seasons.length} temporadas
+          Showing 15 of {seasons.length} seasons
         </p>
       )}
     </div>
@@ -952,45 +643,35 @@ function EpisodesTab({
 }
 
 /* ─────────────────────────────────────────────────────────────
-   TAB NAV — Circular Notch / Floating Bubble
-   Active:   filled circle #FCDB32 with drop shadow, dark icon + bold label
-   Inactive: transparent, slate icon, no label shown / subtle label
+   TAB NAV — Segmented control
+   Active segment: gradient-filled pill, dark ink icon + label.
+   Inactive: transparent, muted icon + label.
    ───────────────────────────────────────────────────────────── */
 function IconInfo({ active }: { active: boolean }) {
-  const c = active ? '#0D1326' : 'rgba(148,163,184,0.65)'
+  const c = active ? '#1A1030' : 'var(--text-muted)'
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="16" x2="12" y2="12" />
       <line x1="12" y1="8" x2="12.01" y2="8" />
     </svg>
   )
 }
-function IconStar({ active }: { active: boolean }) {
-  const c = active ? '#0D1326' : 'rgba(148,163,184,0.65)'
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  )
-}
 function IconPlay({ active }: { active: boolean }) {
-  const c = active ? '#0D1326' : 'rgba(148,163,184,0.65)'
+  const c = active ? '#1A1030' : 'var(--text-muted)'
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
       <polyline points="17 2 12 7 7 2" />
     </svg>
   )
 }
 
-/* Tab IDs remapped to new names */
-type TabId = 'info' | 'rating' | 'episodes'
+type TabId = 'overview' | 'episodes'
 
 const NAV_TABS: { id: TabId; label: string; Icon: React.FC<{ active: boolean }> }[] = [
-  { id: 'info',     label: 'Info',     Icon: IconInfo },
-  { id: 'rating',   label: 'Rating',   Icon: IconStar },
-  { id: 'episodes', label: 'Episodes', Icon: IconPlay  },
+  { id: 'overview', label: 'Overview',  Icon: IconInfo },
+  { id: 'episodes', label: 'Episodes',  Icon: IconPlay  },
 ]
 
 function TabNav({ activeTab, onSelect, showEpisodes }: {
@@ -998,15 +679,15 @@ function TabNav({ activeTab, onSelect, showEpisodes }: {
   onSelect: (t: TabId) => void
   showEpisodes: boolean
 }) {
+  const tabs = NAV_TABS.filter(t => t.id !== 'episodes' || showEpisodes)
   return (
     <div
-      className="flex items-center justify-around px-4 py-3"
+      className="glass flex rounded-2xl"
+      style={{ padding: 4, gap: 4 }}
       role="tablist"
       aria-label="Drawer sections"
-      style={{ borderBottom: '1px solid var(--border-dim)' }}
     >
-      {NAV_TABS.map(t => {
-        if (t.id === 'episodes' && !showEpisodes) return null
+      {tabs.map(t => {
         const active = activeTab === t.id
         return (
           <button
@@ -1015,35 +696,15 @@ function TabNav({ activeTab, onSelect, showEpisodes }: {
             aria-selected={active}
             aria-controls={`dtab-${t.id}`}
             onClick={() => onSelect(t.id)}
-            className="flex flex-col items-center gap-1 transition-all duration-200 active:scale-90 relative"
-            style={{ minWidth: 64 }}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl transition-all duration-200 active:scale-95"
+            style={{
+              padding: '10px 0',
+              background: active ? 'var(--accent-grad)' : 'transparent',
+              boxShadow: active ? 'var(--glow-accent)' : 'none',
+            }}
           >
-            {/* Circular bubble: active = filled yellow circle; inactive = bare icon */}
-            <div
-              className="flex items-center justify-center rounded-full transition-all duration-200"
-              style={active
-                ? {
-                    width: 48, height: 48,
-                    background: '#FCDB32',
-                    boxShadow: '0 4px 16px rgba(252,219,50,0.35), 0 2px 6px rgba(0,0,0,0.30)',
-                  }
-                : {
-                    width: 48, height: 48,
-                    background: 'transparent',
-                  }
-              }
-            >
-              <t.Icon active={active} />
-            </div>
-            {/* Label: always visible, highlighted when active */}
-            <span
-              className="font-bold transition-colors duration-200"
-              style={{
-                fontSize: 10,
-                color:      active ? '#FCDB32' : 'rgba(148,163,184,0.50)',
-                letterSpacing: '0.02em',
-              }}
-            >
+            <t.Icon active={active} />
+            <span className="font-bold" style={{ fontSize: 12.5, color: active ? '#1A1030' : 'var(--text-muted)' }}>
               {t.label}
             </span>
           </button>
@@ -1055,20 +716,24 @@ function TabNav({ activeTab, onSelect, showEpisodes }: {
 
 /* ── Main BottomSheet ──────────────────────────────────────── */
 export default function BottomSheet() {
-  const { sheet, closeSheet, upsertItem, removeItem, showToast, settings, library } = useStore()
+  const { sheet, closeSheet, openSheet, upsertItem, removeItem, showToast, settings, library } = useStore()
 
   const [localItem,   setLocalItem]   = useState<LocalItem | null>(null)
   const [providers,   setProviders]   = useState<TMDBProvider[]>([])
   const [seasons,     setSeasons]     = useState<TMDBSeason[]>([])
   const [loadingData, setLoadingData] = useState(false)
   const [loadingOmdb, setLoadingOmdb] = useState(false)
-  const [activeTab,   setActiveTab]   = useState<TabId>('info')
+  const [activeTab,   setActiveTab]   = useState<TabId>('overview')
   const [isDirty,     setIsDirty]     = useState(false)
   const [showDirty,   setShowDirty]   = useState(false)
   // Ref mirrors isDirty so requestClose always reads current value from stale closures
   const isDirtyRef = useRef(false)
-  const [providersOpen, setProvidersOpen] = useState(true)
-  const [criticOpen,    setCriticOpen]    = useState(true)
+  const [moreDetailsOpen, setMoreDetailsOpen] = useState(true)
+  const [notesOpen,       setNotesOpen]       = useState(false)
+  const [ratingExpanded,  setRatingExpanded]  = useState(false)
+  const [recommendations, setRecommendations] = useState<TMDBResult[]>([])
+  const [loadingRecs,     setLoadingRecs]     = useState(false)
+  const [showAllRecs,     setShowAllRecs]     = useState(false)
 
   const touchStartY  = useRef<number | null>(null)
   const pendingClose = useRef<(() => void) | null>(null)
@@ -1091,8 +756,9 @@ export default function BottomSheet() {
 
   useEffect(() => {
     if (!sheet) {
-      setLocalItem(null); setProviders([]); setSeasons([])
-      setIsDirty(false); isDirtyRef.current = false; setShowDirty(false)
+      setLocalItem(null); setProviders([]); setSeasons([]); setRecommendations([])
+      setIsDirty(false); isDirtyRef.current = false; setShowDirty(false); setShowAllRecs(false)
+      setNotesOpen(false); setRatingExpanded(false)
       return
     }
     const { result, item } = sheet
@@ -1110,8 +776,9 @@ export default function BottomSheet() {
 
     setLocalItem(scaffold)
     setIsDirty(false); setShowDirty(false)
-    setActiveTab('info')
-    setProvidersOpen(true); setCriticOpen(true)
+    setActiveTab('overview')
+    setMoreDetailsOpen(true); setShowAllRecs(false)
+    setNotesOpen(false); setRatingExpanded(false)
 
     setLoadingData(true)
     Promise.all([
@@ -1119,6 +786,11 @@ export default function BottomSheet() {
       result.media_type === 'tv' ? getTVSeasons(result.id) : Promise.resolve<TMDBSeason[]>([]),
     ]).then(([prov, seas]) => { setProviders(prov); setSeasons(seas) })
       .finally(() => setLoadingData(false))
+
+    setRecommendations([]); setLoadingRecs(true)
+    getRecommendations(result.media_type, result.id)
+      .then(list => setRecommendations(list.filter(r => r.id !== result.id)))
+      .finally(() => setLoadingRecs(false))
 
     if (!scaffold.imdbRating && !scaffold.imdbId) {
       setLoadingOmdb(true)
@@ -1219,6 +891,10 @@ export default function BottomSheet() {
     showToast('Saved to library')
   }, [localItem, upsertItem, showToast])
 
+  const openRecommendation = useCallback((r: TMDBResult) => {
+    openSheet(r, library[r.id] ?? null)
+  }, [openSheet, library])
+
   const handleSave   = useCallback(async () => { await doSave(); closeSheet() }, [doSave, closeSheet])
   const handleRemove = useCallback(async () => {
     if (!localItem) return
@@ -1262,12 +938,12 @@ export default function BottomSheet() {
 
   return (
     <div className="absolute inset-0 z-50 flex items-end animate-fade-in"
-      style={{ background: 'rgba(0,0,0,0.75)' }}
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
       onClick={() => requestClose()}
       role="dialog" aria-modal="true" aria-label={`Details for ${localItem.title}`}>
 
       <div className="w-full overflow-y-auto animate-slide-up"
-        style={{ background: 'var(--sheet-bg)', borderRadius: '20px 20px 0 0', maxHeight: '92dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)', boxShadow: 'var(--shadow-overlay)' }}
+        style={{ background: 'var(--sheet-bg)', borderRadius: '28px 28px 0 0', maxHeight: '92dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)', boxShadow: 'var(--shadow-overlay)', borderTop: '1px solid var(--border-dim)' }}
         onClick={e => e.stopPropagation()}
         onTouchStart={e => { touchStartY.current = e.touches[0].clientY }}
         onTouchEnd={e => {
@@ -1283,152 +959,238 @@ export default function BottomSheet() {
         {/* ══════════════════════════════════════════════════════
             HEADER: poster · title · scores · STATUS PILL
             ══════════════════════════════════════════════════════ */}
-        <div className="flex gap-3 px-4 pt-3 pb-0">
+        <div className="flex gap-3.5 px-4 pt-4 pb-4">
 
           {/* Poster */}
-          <div className="flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
-            style={{ width: 52, height: 76, background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
+          <div className="flex-shrink-0 rounded-2xl overflow-hidden flex items-center justify-center"
+            style={{ width: 56, height: 82, background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
             {posterSrc
-              ? <Image src={posterSrc} alt={`${localItem.title} poster`} width={52} height={76} className="w-full h-full object-cover" unoptimized />
-              : <span style={{ fontSize: 24 }} aria-hidden="true">{localItem.type === 'movies' ? '🎬' : localItem.type === 'anime' ? '⛩️' : '📺'}</span>}
+              ? <Image src={posterSrc} alt={`${localItem.title} poster`} width={56} height={82} className="w-full h-full object-cover" unoptimized />
+              : <MediaTypeIcon type={localItem.type} size={24} color="var(--text-faint)" />}
           </div>
 
-          {/* Title + scores */}
-          <div className="flex-1 min-w-0 pt-0.5">
-            <h2 className="font-black text-white leading-snug" style={{ fontSize: 15 }}>{localItem.title}</h2>
+          {/* Title row → plain meta line → scores + status, top to bottom */}
+          <div className="flex-1 min-w-0 flex flex-col gap-1.5 pt-0.5">
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="font-black text-white leading-snug" style={{ fontSize: 15 }}>{localItem.title}</h2>
+              <button onClick={() => requestClose()} aria-label="Close"
+                className="flex-shrink-0 flex items-center justify-center rounded-full transition-opacity active:opacity-50"
+                style={{ width: 30, height: 30, background: 'var(--surface-3)', color: 'var(--text-muted)', fontSize: 17, border: '1px solid var(--border-dim)' }}>
+                ×
+              </button>
+            </div>
 
-            {/* Score row */}
-            <div className="flex items-center gap-2 mt-1 mb-1.5 flex-wrap">
+            <span style={{ fontSize: 10.5, color: 'var(--text-faint)', fontWeight: 600 }}>
+              {localItem.year}{localItem.year ? ' · ' : ''}{typeLabel}{localItem.director ? ` · ${localItem.director}` : ''}
+            </span>
+
+            <div className="flex items-center gap-2 flex-wrap">
               {headerScore && (
-                <div className="flex items-center gap-1 rounded-lg px-2 py-0.5"
+                <div className="flex items-center gap-1 rounded-full px-2.5 py-1"
                   style={{
-                    background: scoreIsAvg ? 'rgba(252,219,50,0.10)' : 'rgba(255,255,255,0.06)',
-                    border:     scoreIsAvg ? '1px solid rgba(252,219,50,0.25)' : '1px solid rgba(255,255,255,0.10)',
+                    background: scoreIsAvg ? 'rgba(249,115,22,0.10)' : 'rgba(255,255,255,0.06)',
+                    border:     scoreIsAvg ? '1px solid rgba(249,115,22,0.25)' : '1px solid rgba(255,255,255,0.10)',
                   }}>
                   <span style={{ color: scoreIsAvg ? 'var(--sun)' : 'var(--text-muted)', fontSize: 11 }} aria-hidden="true">★</span>
                   <span className="font-black tabular-nums" style={{ color: scoreIsAvg ? 'var(--sun)' : 'var(--text-2)', fontSize: 12 }}>{headerScore}</span>
                   {scoreIsAvg
-                    ? <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(252,219,50,0.55)', letterSpacing: '0.06em' }} aria-label="avg">AVG</span>
+                    ? <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(249,115,22,0.55)', letterSpacing: '0.06em' }} aria-label="avg">AVG</span>
                     : <span style={{ fontSize: 8, color: 'var(--text-faint)' }}>TMDB</span>}
                 </div>
               )}
 
               {localItem.userRating !== undefined && (
-                <>
-                  {headerScore && <span style={{ color: 'var(--border)', fontSize: 11 }} aria-hidden="true">|</span>}
-                  <div className="flex items-center gap-1 rounded-lg px-2 py-0.5"
-                    style={{ background: 'rgba(125,164,199,0.10)', border: '1px solid rgba(125,164,199,0.22)' }}
-                    aria-label={`My rating ${localItem.userRating.toFixed(1)}`}>
-                    <span style={{ color: '#7da4c7', fontSize: 11 }} aria-hidden="true">♥</span>
-                    <span className="font-black tabular-nums" style={{ color: '#7da4c7', fontSize: 12 }}>{localItem.userRating.toFixed(1)}</span>
-                    <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(125,164,199,0.55)', letterSpacing: '0.06em' }}>MY</span>
-                  </div>
-                </>
+                <div className="flex items-center gap-1 rounded-full px-2.5 py-1"
+                  style={{ background: 'rgba(45,212,191,0.12)', border: '1px solid rgba(45,212,191,0.28)' }}
+                  aria-label={`My rating ${localItem.userRating.toFixed(1)}`}>
+                  <span style={{ color: 'var(--watching-text)', fontSize: 11 }} aria-hidden="true">♥</span>
+                  <span className="font-black tabular-nums" style={{ color: 'var(--watching-text)', fontSize: 12 }}>{localItem.userRating.toFixed(1)}</span>
+                  <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(125,164,199,0.55)', letterSpacing: '0.06em' }}>MY</span>
+                </div>
               )}
 
-              {localItem.director && (
-                <span style={{ fontSize: 9, color: 'var(--text-faint)' }}>· {localItem.director}</span>
-              )}
+              <StatusPill status={localItem.status} onChange={setStatus} />
             </div>
-
-            <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>
-              {localItem.year}{localItem.year ? ' · ' : ''}{typeLabel}
-            </span>
-          </div>
-
-          {/* Close button + status pill */}
-          <div className="flex flex-col items-end gap-2 flex-shrink-0" style={{ paddingTop: 2 }}>
-            <button onClick={() => requestClose()} aria-label="Close"
-              className="flex items-center justify-center rounded-full transition-opacity active:opacity-50"
-              style={{ width: 28, height: 28, background: 'var(--surface-3)', color: 'var(--text-muted)', fontSize: 18, border: '1px solid var(--border-dim)' }}>
-              ×
-            </button>
-            <StatusPill status={localItem.status} onChange={setStatus} />
           </div>
         </div>
 
+        <Divider />
+
         {/* ══════════════════════════════════════════════════════
-            CIRCULAR NOTCH BUBBLE TAB NAV
+            TAB NAV — segmented control
             ══════════════════════════════════════════════════════ */}
-        <TabNav
-          activeTab={activeTab}
-          onSelect={setActiveTab}
-          showEpisodes={isTV}
-        />
+        <div className="px-4 pt-3 pb-1">
+          <TabNav
+            activeTab={activeTab}
+            onSelect={setActiveTab}
+            showEpisodes={isTV}
+          />
+        </div>
 
         {/* ── Tab content ── */}
-        <div style={{ minHeight: '52vh' }} className="pt-4">
+        <div style={{ minHeight: '50vh' }} className="pt-3">
 
-          {/* TAB 1: INFO */}
-          {activeTab === 'info' && (
-            <div id="dtab-info" role="tabpanel" aria-label="Info" className="px-4 flex flex-col gap-4 pb-4">
-              <div style={{ background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-dim)' }}>
-                <SectionHead label={`Watch in ${settings.region}`} open={providersOpen}
-                  onToggle={() => setProvidersOpen(v => !v)} id="prov"
-                  right={loadingData ? 'loading…' : providers.length > 0 ? `${providers.length} services` : 'none'} />
-                <Collapse open={providersOpen} id="prov">
-                  <div className="px-4 pb-4">
-                    {loadingData
-                      ? <div className="flex items-center gap-2" style={{ color: 'var(--text-faint)', fontSize: 12 }}><Spinner /> Loading…</div>
-                      : providers.length === 0
-                        ? <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>Not available in {settings.region}.</p>
-                        : <div className="flex flex-wrap gap-1.5">
-                            {providers.map(p => (
-                              <div key={p.provider_id} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5"
-                                style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)' }}>
-                                {p.logo_path && <Image src={`https://image.tmdb.org/t/p/w45${p.logo_path}`} alt={p.provider_name} width={18} height={18} className="rounded" unoptimized />}
-                                <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{p.provider_name}</span>
-                              </div>
-                            ))}
-                          </div>}
+          {/* OVERVIEW TAB — rating, notes, keep-watching, then everything you
+              only check once (providers + critic scores) behind one shared
+              disclosure, then similar titles at the bottom. */}
+          {activeTab === 'overview' && (
+            <div id="dtab-overview" role="tabpanel" aria-label="Overview" className="px-4 flex flex-col gap-3.5 pb-4">
+
+              {/* ── Rating + Keep-watching — side by side compact, tap Rating to bring it forward for precise dragging ── */}
+              <div className={ratingExpanded ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-3'}>
+                {ratingExpanded ? (
+                  <RatingRow
+                    label={isTV ? 'Overall rating' : 'My score'}
+                    value={localItem.userRating}
+                    onChange={v => update({ userRating: v })}
+                    caption={isTV && seasonAvg !== undefined ? `Season average ${seasonAvg.toFixed(1)} · your overall score is set independently` : undefined}
+                    onCollapse={() => setRatingExpanded(false)}
+                  />
+                ) : (
+                  <button onClick={() => setRatingExpanded(true)}
+                    className={`rounded-3xl p-4 flex flex-col items-center justify-center gap-1 transition-opacity active:opacity-80 ${!isTV ? 'col-span-2' : ''}`}
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)', minHeight: 84 }}>
+                    <span className="font-black tabular-nums" style={{ fontSize: 22, color: localItem.userRating !== undefined ? 'var(--accent)' : 'var(--text-faint)' }}>
+                      {localItem.userRating !== undefined ? localItem.userRating.toFixed(1) : '—'}
+                    </span>
+                    <span className="font-bold uppercase tracking-wide" style={{ fontSize: 10, color: 'var(--text-faint)' }}>
+                      {isTV ? 'Overall rating' : 'My score'}
+                    </span>
+                  </button>
+                )}
+
+                {isTV && !ratingExpanded && (
+                  <button
+                    onClick={() => update({ keepWatching: !localItem.keepWatching })}
+                    aria-pressed={Boolean(localItem.keepWatching)}
+                    className="rounded-3xl p-4 flex flex-col items-center justify-center gap-1 transition-opacity active:opacity-80"
+                    style={{
+                      background: localItem.keepWatching ? 'rgba(249,115,22,0.12)' : 'var(--surface-2)',
+                      border: `1px solid ${localItem.keepWatching ? 'rgba(249,115,22,0.35)' : 'var(--border-dim)'}`,
+                      minHeight: 84,
+                    }}>
+                    <span className="flex items-center justify-center rounded-xl flex-shrink-0"
+                      style={{ width: 26, height: 26, background: localItem.keepWatching ? 'var(--accent-grad)' : 'var(--surface-3)' }}
+                      aria-hidden="true">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                        stroke={localItem.keepWatching ? '#1A1030' : 'var(--text-muted)'}
+                        strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </span>
+                    <span className="font-bold text-center" style={{ fontSize: 11, color: localItem.keepWatching ? 'var(--text)' : 'var(--text-faint)', lineHeight: 1.3 }}>
+                      {localItem.keepWatching ? 'Watching for this' : 'Keep an eye on this'}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {/* ── More details — where to watch (left) + critic scores (right), one disclosure ── */}
+              <div className="rounded-3xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
+                <button onClick={() => setMoreDetailsOpen(v => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 transition-opacity active:opacity-70"
+                  aria-expanded={moreDetailsOpen} aria-controls="more-details">
+                  <span className="font-bold text-white" style={{ fontSize: 13 }}>More details</span>
+                  <Chevron open={moreDetailsOpen} />
+                </button>
+                <Collapse open={moreDetailsOpen} id="more-details">
+                  <div className="px-4 pb-4 grid grid-cols-2 gap-4">
+                    <div style={{ borderRight: '1px solid var(--border-dim)', paddingRight: 16 }}>
+                      <p className="font-black uppercase tracking-wide" style={{ fontSize: 9.5, color: 'var(--text-faint)', marginBottom: 10 }}>
+                        Watch in {settings.region}
+                      </p>
+                      {loadingData
+                        ? <div className="flex items-center gap-2" style={{ color: 'var(--text-faint)', fontSize: 12 }}><Spinner /> Loading…</div>
+                        : providers.length === 0
+                          ? <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>Not available.</p>
+                          : <div className="flex flex-wrap gap-2.5">
+                              {providers.map(p => (
+                                <button key={p.provider_id}
+                                  onClick={() => showToast(p.provider_name)}
+                                  className="rounded-2xl overflow-hidden flex items-center justify-center flex-shrink-0 transition-opacity active:opacity-70"
+                                  style={{ width: 40, height: 40, background: '#fff' }}
+                                  title={p.provider_name} aria-label={p.provider_name}>
+                                  {p.logo_path && <Image src={`https://image.tmdb.org/t/p/w45${p.logo_path}`} alt={p.provider_name} width={40} height={40} className="w-full h-full object-cover" unoptimized />}
+                                </button>
+                              ))}
+                            </div>}
+                    </div>
+                    <div>
+                      <p className="font-black uppercase tracking-wide" style={{ fontSize: 9.5, color: 'var(--text-faint)', marginBottom: 10 }}>
+                        Critic Ratings
+                      </p>
+                      <CriticRatings
+                        tmdbRating={localItem.tmdbRating} imdbRating={localItem.imdbRating}
+                        rottenTomatoes={localItem.rottenTomatoes} metacritic={localItem.metacritic}
+                        rated={localItem.rated} runtime={localItem.runtime} loading={loadingOmdb} />
+                    </div>
                   </div>
                 </Collapse>
               </div>
 
-              <div style={{ background: 'var(--surface-2)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-dim)' }}>
-                <SectionHead label="Critic Ratings" open={criticOpen}
-                  onToggle={() => setCriticOpen(v => !v)} id="cr"
-                  right={loadingOmdb ? 'loading…' : localItem.imdbRating ? `IMDb ${localItem.imdbRating}` : undefined} />
-                <Collapse open={criticOpen} id="cr">
+              {/* ── Private Notes — hidden by default ── */}
+              <div className="rounded-3xl overflow-hidden" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
+                <button onClick={() => setNotesOpen(v => !v)}
+                  className="w-full flex items-center gap-2.5 px-4 py-3.5 transition-opacity active:opacity-70"
+                  aria-expanded={notesOpen} aria-controls="notes-panel">
+                  <span className="flex items-center justify-center rounded-xl flex-shrink-0"
+                    style={{ width: 30, height: 30, background: 'rgba(249,115,22,0.12)', color: 'var(--accent)' }} aria-hidden="true">
+                    <IconEdit />
+                  </span>
+                  <span className="flex-1 text-left font-bold text-white" style={{ fontSize: 13 }}>Private Notes</span>
+                  <Chevron open={notesOpen} />
+                </button>
+                <Collapse open={notesOpen} id="notes-panel">
                   <div className="px-4 pb-4">
-                    <CriticRatings
-                      tmdbRating={localItem.tmdbRating} imdbRating={localItem.imdbRating}
-                      rottenTomatoes={localItem.rottenTomatoes} metacritic={localItem.metacritic}
-                      rated={localItem.rated} runtime={localItem.runtime} loading={loadingOmdb} />
+                    <textarea
+                      value={localItem.notes || ''}
+                      onChange={e => update({ notes: e.target.value })}
+                      placeholder="Your thoughts, spoilers, recommendations…"
+                      aria-label="Private notes"
+                      rows={4}
+                      className="w-full rounded-2xl px-3.5 py-3 text-[13px] text-white resize-none"
+                      style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)', lineHeight: 1.6 }}
+                    />
                   </div>
                 </Collapse>
               </div>
 
-              {/* ── Notas Privadas (moved here from Rating tab) ── */}
-              <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
-                <p className="font-black text-white uppercase tracking-widest mb-3" style={{ fontSize: 10 }}>Notas privadas</p>
-                <textarea
-                  value={localItem.notes || ''}
-                  onChange={e => update({ notes: e.target.value })}
-                  placeholder="Tus opiniones, spoilers, recomendaciones…"
-                  aria-label="Private notes"
-                  rows={4}
-                  className="w-full rounded-lg px-3 py-2.5 text-[13px] text-white resize-none"
-                  style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)', lineHeight: 1.6 }}
-                />
-              </div>
+              {/* ── More Like This ── */}
+              {(loadingRecs || recommendations.length > 0) && (
+                <div>
+                  <div className="flex items-center justify-between px-1 mb-2.5">
+                    <p className="font-bold uppercase tracking-wide" style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                      More Like This
+                    </p>
+                    {recommendations.length > 6 && (
+                      <button onClick={() => setShowAllRecs(true)}
+                        className="font-bold uppercase tracking-wide"
+                        style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                        All · {recommendations.length}
+                      </button>
+                    )}
+                  </div>
+                  {loadingRecs ? (
+                    <div className="flex items-center gap-2 px-1" style={{ color: 'var(--text-faint)', fontSize: 12 }}>
+                      <Spinner /> Finding similar titles…
+                    </div>
+                  ) : (
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {recommendations.slice(0, 6).map(r => (
+                        <div key={r.id} style={{ width: 112, flexShrink: 0 }}>
+                          <PosterCard posterPath={r.poster_path ?? null} title={getTitle(r)}
+                            meta={r.vote_average ? `★ ${formatRating(r.vote_average)}` : undefined}
+                            onPress={() => openRecommendation(r)} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* TAB 2: RATING */}
-          {activeTab === 'rating' && (
-            <RatingTab
-              localItem={localItem}
-              seasons={seasons}
-              loadingData={loadingData}
-              isTV={isTV}
-              seasonAvg={seasonAvg}
-              onGlobalRating={v => update({ userRating: v })}
-              onSeasonRating={updateSeasonRating}
-            />
-          )}
-
-          {/* TAB 3: EPISODES */}
+          {/* EPISODES TAB */}
           {activeTab === 'episodes' && (
             <EpisodesTab
               localItem={localItem}
@@ -1437,24 +1199,25 @@ export default function BottomSheet() {
               isTV={isTV}
               onToggleEp={toggleEpisode}
               onAutoFill={autoFillUpTo}
+              onSeasonRating={updateSeasonRating}
             />
           )}
         </div>
 
         <Divider />
 
-        {/* ── Action buttons — sun ONLY on primary Save ── */}
+        {/* ── Action buttons — gradient accent ONLY on primary Save ── */}
         <div className="px-4 pt-3 flex gap-2.5">
           <button onClick={handleSave}
-            className="flex-1 rounded-xl font-black text-black transition-opacity active:opacity-75"
-            style={{ padding: '14px 0', fontSize: 15, background: 'var(--sun)', minHeight: 44 }}>
-            {isDirty ? 'Guardar ●' : 'Guardar'}
+            className="flex-1 rounded-2xl font-black transition-opacity active:opacity-80"
+            style={{ padding: '14px 0', fontSize: 15, background: 'var(--accent-grad)', color: '#1A1030', minHeight: 44, boxShadow: 'var(--glow-accent-lg)' }}>
+            {isDirty ? 'Save ●' : 'Save'}
           </button>
           {inLibrary && (
             <button onClick={handleRemove}
-              className="flex-1 rounded-xl font-bold transition-opacity active:opacity-75"
-              style={{ padding: '14px 0', fontSize: 14, color: '#ef8c86', background: 'rgba(255,69,58,0.08)', border: '1px solid rgba(255,69,58,0.20)', minHeight: 44 }}>
-              Eliminar
+              className="flex-1 rounded-2xl font-bold transition-opacity active:opacity-75"
+              style={{ padding: '14px 0', fontSize: 14, color: '#fb7185', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.20)', minHeight: 44 }}>
+              Remove
             </button>
           )}
         </div>
@@ -1466,6 +1229,16 @@ export default function BottomSheet() {
           onSave={handleDirtySave}
           onDiscard={handleDirtyDiscard}
           onCancel={handleDirtyCancel}
+        />
+      )}
+
+      {/* ── More Like This — full list ── */}
+      {showAllRecs && (
+        <CategorySheet
+          title="More Like This"
+          items={recommendations}
+          onClose={() => setShowAllRecs(false)}
+          onSelect={r => { setShowAllRecs(false); openRecommendation(r) }}
         />
       )}
     </div>

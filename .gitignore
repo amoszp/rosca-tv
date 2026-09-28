@@ -36,3 +36,8 @@ Thumbs.db
 
 # Docker
 .dockerignore
+
+# Local agent/AI tooling (not part of the app)
+.agents/
+.claude/
+skills-lock.json

@@ -7,7 +7,7 @@ import MediaCard from './MediaCard'
 import { usePosterSync } from '@/hooks/usePosterSync'
 import { WordMark } from '../App'
 
-/* ── Nordic Minimal filter pill styles ──────────────────────── */
+/* ── Aurora Noir filter pill styles ─────────────────────────── */
 const FILTER_TABS: { id: SubTab; label: string }[] = [
   { id: 'all',      label: 'All'      },
   { id: 'pending',  label: 'Pending'  },
@@ -15,25 +15,7 @@ const FILTER_TABS: { id: SubTab; label: string }[] = [
   { id: 'watched',  label: 'Watched'  },
 ]
 
-/* Nordic Minimal active pill:
-   #1E2942 bg, slate-400/50 border, white text, semibold — clearly distinct from watched badge */
-const PILL_ACTIVE = {
-  background: '#1E2942',
-  color:      '#FFFFFF',
-  border:     '1px solid rgba(148,163,184,0.50)',  // slate-400/50 high-contrast
-  fontWeight: 600,
-}
-/* Nordic Minimal inactive pill:
-   #141D38 bg, slate-800 border, slate-400 text — uniform & always visible */
-const PILL_IDLE = {
-  background: '#141D38',
-  color:      'rgba(148,163,184,0.70)',             // slate-400
-  border:     '1px solid rgba(30,41,59,0.95)',      // slate-800 equiv
-  fontWeight: 400,
-}
-
 const TYPE_LABEL: Record<LibraryType, string> = { movies: 'Movies', series: 'Series', anime: 'Anime' }
-const TYPE_EMOJI: Record<LibraryType, string>  = { movies: '🎬',    series: '📺',    anime: '⛩️'   }
 
 interface Props { type: LibraryType }
 
@@ -82,16 +64,13 @@ export default function LibraryScreen({ type }: Props) {
   const activeSortLabel = SORT_OPTIONS.find(o => o.key === settings.sortKey)?.label ?? 'Sort'
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'transparent' }}>
 
-      {/* ══ COMPACT SINGLE-ROW HEADER ══ */}
-      <div className="flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 70%, transparent 100%)',
-        borderBottom: '1px solid var(--border-dim)',
-      }}>
+      {/* ══ HEADER — glass surface ══ */}
+      <div className="flex-shrink-0 glass" style={{ borderLeft: 'none', borderRight: 'none', borderTop: 'none' }}>
         {/* Row: left title | centre brand | right icons */}
-        <div className="relative flex items-center px-3" style={{
-          height: 'calc(48px + env(safe-area-inset-top,0px))',
+        <div className="relative flex items-center px-4" style={{
+          height: 'calc(52px + env(safe-area-inset-top,0px))',
           paddingTop: 'env(safe-area-inset-top,0px)',
         }}>
           {/* LEFT */}
@@ -101,19 +80,19 @@ export default function LibraryScreen({ type }: Props) {
                 onChange={e => setLibSearch(e.target.value)}
                 placeholder={`Search ${TYPE_LABEL[type].toLowerCase()}…`}
                 aria-label={`Search ${TYPE_LABEL[type]}`}
-                className="flex-1 min-w-0 rounded-lg text-white"
-                style={{ background: 'var(--surface-2)', border: '1px solid rgba(148,163,184,0.3)', padding: '6px 10px', fontSize: 13 }} />
+                className="flex-1 min-w-0 rounded-2xl text-white"
+                style={{ background: 'var(--surface-3)', border: '1px solid var(--border)', padding: '8px 12px', fontSize: 13 }} />
               <button onClick={() => { setSearchOpen(false); setLibSearch('') }} aria-label="Close search"
                 style={{ color: 'var(--text-muted)', fontSize: 18, lineHeight: 1, padding: '2px 4px' }}>×</button>
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="font-bold text-white" style={{ fontSize: 15, letterSpacing: '-0.2px' }}>{TYPE_LABEL[type]}</span>
-              <span className="tabular-nums font-medium" style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-                {all.length} {all.length === 1 ? 'ítem' : 'ítems'}
+              <span className="font-black text-white" style={{ fontSize: 17, letterSpacing: '-0.3px' }}>{TYPE_LABEL[type]}</span>
+              <span className="tabular-nums font-semibold" style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                {all.length} {all.length === 1 ? 'item' : 'items'}
               </span>
               {syncingIds.size > 0 && (
-                <span style={{ fontSize: 10, color: 'rgba(148,163,184,0.7)' }}>↓{syncingIds.size}</span>
+                <span style={{ fontSize: 10, color: 'var(--accent)' }}>↓{syncingIds.size}</span>
               )}
             </div>
           )}
@@ -122,86 +101,92 @@ export default function LibraryScreen({ type }: Props) {
           {!searchOpen && (
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center pointer-events-none select-none"
               style={{ top: 'env(safe-area-inset-top,0px)', bottom: 0 }}>
-              <WordMark size={19} />
+              <WordMark size={18} />
             </div>
           )}
 
           {/* RIGHT */}
-          <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
             {!searchOpen && (
               <button
                 onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 60) }}
                 aria-label="Search library"
                 className="flex items-center justify-center rounded-full transition-opacity active:opacity-50"
-                style={{ width: 30, height: 30, background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                  stroke="rgba(148,163,184,0.7)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                style={{ width: 34, height: 34, background: 'var(--surface-3)', border: '1px solid var(--border-dim)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--text-muted)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                 </svg>
               </button>
             )}
-            {/* Sort icon — neutral slate, NO sun colour */}
+            {/* Sort icon — accent when open */}
             <button
               onClick={() => setSortOpen(v => !v)}
               aria-label="Sort options" aria-expanded={sortOpen}
-              className="flex items-center justify-center rounded-full transition-opacity active:opacity-50"
+              className="flex items-center justify-center rounded-full transition-all"
               style={{
-                width: 30, height: 30,
-                background: sortOpen ? 'var(--surface-3)' : 'var(--surface-2)',
-                border: `1px solid ${sortOpen ? 'rgba(148,163,184,0.35)' : 'var(--border-dim)'}`,
+                width: 34, height: 34,
+                background: sortOpen ? 'var(--accent-grad)' : 'var(--surface-3)',
+                border: sortOpen ? 'none' : '1px solid var(--border-dim)',
+                boxShadow: sortOpen ? 'var(--glow-accent)' : 'none',
               }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                stroke={sortOpen ? '#FFFFFF' : 'rgba(148,163,184,0.7)'}
-                strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke={sortOpen ? '#1A1030' : 'var(--text-muted)'}
+                strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M3 6h18M7 12h10M11 18h2"/>
               </svg>
             </button>
           </div>
         </div>
 
-        {/* ── Filter pills — ALWAYS VISIBLE, no collapse, Nordic Minimal ── */}
+        {/* ── Filter pills — gradient active state ── */}
         <div
-          className="grid grid-cols-4 px-3 pb-2.5 pt-1 gap-1.5"
+          className="grid grid-cols-4 px-4 pb-3 pt-1 gap-2"
           role="group" aria-label="Filter by status">
           {FILTER_TABS.map(t => {
             const active = subTab === t.id
-            const style  = active ? PILL_ACTIVE : PILL_IDLE
             return (
               <button key={t.id} onClick={() => setSubTab(t.id)} aria-pressed={active}
-                className="rounded-lg transition-all duration-150 active:scale-95"
-                style={{ paddingTop: 7, paddingBottom: 7, fontSize: 11, ...style }}>
+                className="rounded-2xl transition-all duration-150 active:scale-95 font-bold"
+                style={{
+                  paddingTop: 8, paddingBottom: 8, fontSize: 11,
+                  background: active ? 'var(--accent-grad)' : 'var(--surface-2)',
+                  color:      active ? '#1A1030' : 'var(--text-muted)',
+                  border:     active ? 'none' : '1px solid var(--border-dim)',
+                  boxShadow:  active ? 'var(--glow-accent)' : 'none',
+                }}>
                 {t.label}
               </button>
             )
           })}
         </div>
 
-        {/* ── Sort panel — neutral palette, no sun ── */}
+        {/* ── Sort panel ── */}
         <div style={{
           overflow: 'hidden',
           maxHeight: sortOpen ? 420 : 0,
           opacity: sortOpen ? 1 : 0,
           transition: 'max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease',
         }}>
-          <div className="px-3 pb-3 pt-1 flex flex-col gap-1" role="group" aria-label="Sort options">
+          <div className="px-4 pb-4 pt-1 flex flex-col gap-1.5" role="group" aria-label="Sort options">
             <p className="font-black uppercase tracking-widest px-1 pb-1"
               style={{ fontSize: 9, color: 'var(--text-faint)' }}>
-              Sort · <span style={{ color: 'rgba(148,163,184,0.9)' }}>{activeSortLabel}</span>
+              Sort · <span style={{ color: 'var(--accent)' }}>{activeSortLabel}</span>
             </p>
             {SORT_OPTIONS.map(opt => {
               const active = settings.sortKey === opt.key
               return (
                 <button key={opt.key} onClick={() => handleSort(opt.key)} aria-pressed={active}
-                  className="flex items-center justify-between rounded-lg px-3 py-2 text-left transition-all active:opacity-70"
+                  className="flex items-center justify-between rounded-2xl px-4 py-2.5 text-left transition-all active:opacity-70"
                   style={{
-                    background: active ? '#1E2942' : '#141D38',
-                    border:     `1px solid ${active ? 'rgba(148,163,184,0.35)' : 'rgba(30,43,74,0.8)'}`,
+                    background: active ? 'rgba(249,115,22,0.14)' : 'var(--surface-2)',
+                    border:     `1px solid ${active ? 'rgba(249,115,22,0.35)' : 'var(--border-dim)'}`,
                     fontSize:   12,
-                    color:      active ? '#FFFFFF' : 'rgba(148,163,184,0.75)',
-                    fontWeight: active ? 600 : 400,
+                    color:      active ? 'var(--text)' : 'var(--text-muted)',
+                    fontWeight: active ? 700 : 500,
                   }}>
                   <span>{opt.label}</span>
-                  {active && <span style={{ color: '#FFFFFF', fontSize: 13 }}>✓</span>}
+                  {active && <span className="gradient-text font-black" style={{ fontSize: 13 }}>✓</span>}
                 </button>
               )
             })}
@@ -211,7 +196,7 @@ export default function LibraryScreen({ type }: Props) {
 
       {/* ── Card list ── */}
       <div className="flex-1 overflow-y-auto" role="main" aria-label={`${TYPE_LABEL[type]} library`}>
-        <div className="flex flex-col gap-2 px-3 pt-3 pb-8">
+        <div className="flex flex-col gap-3 px-3.5 pt-4 pb-8">
           {items.length === 0 ? (
             <EmptyState type={type} hasItems={all.length > 0} onSearch={() => setTab('search')} />
           ) : (
@@ -228,34 +213,34 @@ export default function LibraryScreen({ type }: Props) {
 
 function EmptyState({ type, hasItems, onSearch }: { type: LibraryType; hasItems: boolean; onSearch: () => void }) {
   return (
-    <div className="flex flex-col items-center text-center pt-16 gap-4 px-8" role="status" aria-live="polite">
-      <div className="flex items-center justify-center rounded-2xl"
-        style={{ width: 88, height: 88, background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}
+    <div className="flex flex-col items-center text-center pt-16 gap-5 px-8" role="status" aria-live="polite">
+      <div className="flex items-center justify-center rounded-3xl glass"
+        style={{ width: 92, height: 92 }}
         aria-hidden="true">
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none"
-          stroke="var(--text-faint)" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none"
+          stroke="var(--accent)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 11H20"/>
           <rect x="2" y="4" width="20" height="16" rx="2"/>
           <path d="M8 4v7M12 4v7M16 4v7"/>
           <path d="M6 4l2 3M10 4l2 3M14 4l2 3"/>
         </svg>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <p className="font-black text-white" style={{ fontSize: 18 }}>
-          {hasItems ? 'No results' : 'Tu lista está vacía'}
+      <div className="flex flex-col gap-2">
+        <p className="font-black text-white" style={{ fontSize: 19 }}>
+          {hasItems ? 'No results' : 'Your list is empty'}
         </p>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.65 }}>
           {hasItems
             ? 'Try a different filter or sort option.'
-            : `No tienes ${TYPE_LABEL[type].toLowerCase()} en tu biblioteca todavía.`}
+            : `You don't have any ${TYPE_LABEL[type].toLowerCase()} in your library yet.`}
         </p>
       </div>
-      {/* CTA — sun yellow ONLY because it's the primary action button */}
+      {/* CTA — gradient, reserved for the primary action */}
       {!hasItems && (
         <button onClick={onSearch}
-          className="rounded-xl font-black text-black transition-opacity active:opacity-75"
-          style={{ padding: '13px 28px', fontSize: 14, background: 'var(--sun)', marginTop: 4, minHeight: 44 }}>
-          Buscar títulos
+          className="rounded-2xl font-black transition-opacity active:opacity-80"
+          style={{ padding: '14px 30px', fontSize: 14, background: 'var(--accent-grad)', color: '#1A1030', marginTop: 4, minHeight: 44, boxShadow: 'var(--glow-accent-lg)' }}>
+          Search titles
         </button>
       )}
     </div>

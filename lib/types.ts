@@ -1,7 +1,7 @@
 export type MediaType    = 'movie' | 'tv'
 export type LibraryType  = 'movies' | 'series' | 'anime'
 export type Status       = 'pending' | 'watching' | 'watched'
-export type Tab          = 'movies' | 'series' | 'anime' | 'search' | 'settings'
+export type Tab          = 'home' | 'movies' | 'series' | 'anime' | 'search' | 'settings'
 export type SubTab       = 'all' | Status
 export type DrawerTab    = 'overview' | 'tracking' | 'seasons'
 
@@ -33,6 +33,7 @@ export interface LibraryItem {
   userRating?: DecimalRating
   seasonData?: Record<string, SeasonRating>
   notes?: string
+  keepWatching?: boolean       // "Keep an eye on this" — flags unfinished sagas for the Home "Just arrived" section
   addedAt: number; updatedAt?: number
   imdbId?: string; imdbRating?: string; rottenTomatoes?: string
   metacritic?: string; rated?: string; runtime?: string; director?: string

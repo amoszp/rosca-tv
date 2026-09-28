@@ -4,6 +4,20 @@ A premium, native-feeling iOS PWA to track movies, series, and anime. Built with
 
 ---
 
+## Recent Updates
+
+### Home screen (2026-09-28)
+Added a dedicated Home screen (`components/home/HomeScreen.tsx`, `PosterCard.tsx`, `CategorySheet.tsx`) with three sections:
+- **Continue Watching** — items with status `watching`, most recently updated first.
+- **Coming Soon** — TV items flagged "keep an eye on this," already `watched`, or rated above 8 (item or season level), cross-checked against TMDB's `next_episode_to_air` to surface newly scheduled episodes/seasons.
+- **Based on Your Interests** — TMDB recommendations seeded from highly-rated/watched titles, pooled and ranked by how many seeds recommended each title.
+
+Also removed unused legacy UI (`ArcDial.tsx`, `WheelPicker.tsx`, `GearIcon.tsx`, `SearchIcon.tsx`, `SettingsModal.tsx`) and added `MediaTypeIcon.tsx` / `lib/statusStyles.ts`.
+
+Not yet implemented: filtering the "Interests" section by which streaming platforms Moe is actively subscribed to (would need a new settings screen plus TMDB's `/watch/providers` endpoint).
+
+---
+
 ## Quick Start
 
 ```bash

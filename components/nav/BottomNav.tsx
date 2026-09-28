@@ -11,8 +11,8 @@ const ITEMS: { id: Tab; label: string }[] = [
 export default function BottomNav() {
   const { tab, setTab } = useStore()
   return (
-    <nav className="flex-shrink-0 flex flex-col" style={{ paddingBottom:'env(safe-area-inset-bottom,0px)', background:'transparent' }}>
-      <div className="glass-strong flex mx-3 rounded-3xl" style={{ height:64, padding:6, boxShadow:'var(--shadow-lg)' }}>
+    <nav className="flex-shrink-0 glass-strong flex flex-col" style={{ paddingBottom:'env(safe-area-inset-bottom,0px)', borderRadius:'24px 24px 0 0', boxShadow:'var(--shadow-lg)' }}>
+      <div className="flex" style={{ height:56, padding:'4px 6px' }}>
         {ITEMS.map(item => {
           const active = tab === item.id
           return (

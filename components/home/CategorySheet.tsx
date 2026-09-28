@@ -19,9 +19,8 @@ export default function CategorySheet({ title, items, onSelect, onClose }: Props
         style={{ background: 'var(--sheet-bg)', borderRadius: '28px 28px 0 0', maxHeight: '85dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)', boxShadow: 'var(--shadow-overlay)', borderTop: '1px solid var(--border-dim)' }}
         onClick={e => e.stopPropagation()}>
 
-        <div style={{ width: 36, height: 4, background: 'var(--border)', borderRadius: 2, margin: '10px auto 0' }} aria-hidden="true" />
-
-        <div className="flex items-center justify-between px-4 pt-3 pb-4">
+        <div className="flex items-center justify-between px-4 pt-3 pb-4" style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--sheet-bg)' }}>
+          <div style={{ position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)', width: 36, height: 4, background: 'var(--border)', borderRadius: 2 }} aria-hidden="true" />
           <p className="font-black uppercase tracking-widest" style={{ fontSize: 12, color: 'var(--text-faint)' }}>{title}</p>
           <button onClick={onClose} aria-label="Close"
             className="flex items-center justify-center rounded-full transition-opacity active:opacity-50"

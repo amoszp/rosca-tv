@@ -329,51 +329,43 @@ function SlimSeasonSlider({ value, onChange, label, t }: {
     cbRef.current(snap(MIN + ratio * (MAX - MIN)))
   }, [])
 
+  // No inline "Clear" button anymore — it used to sit to the right of the
+  // track and shrink it, making this bar visibly shorter than the episode
+  // progress bar right below it. Clearing now happens by double-clicking the
+  // numeric readout next to this slider instead (see SeasonEpisodeCard).
   return (
-    <div className="flex items-center gap-2.5">
-      <div
-        className="relative flex items-center flex-1"
-        style={{ height: 24, touchAction: 'none', cursor: 'pointer' }}
-        ref={trackRef}
-        role="slider"
-        aria-valuemin={MIN} aria-valuemax={MAX} aria-valuenow={value}
-        aria-label={`${label} rating`}
-        tabIndex={0}
-        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; applyRatio(e.clientX) }}
-        onPointerMove={e => { if (!dragging.current) return; applyRatio(e.clientX) }}
-        onPointerUp={() => { dragging.current = false }}
-        onPointerCancel={() => { dragging.current = false }}
-        onKeyDown={e => {
-          if (e.key === 'ArrowRight') onChange(snap((value ?? MIN) + STEP))
-          if (e.key === 'ArrowLeft')  onChange(snap((value ?? MIN) - STEP))
-          if (e.key === 'Home') onChange(MIN)
-          if (e.key === 'End')  onChange(MAX)
-        }}
-      >
-        <div className="absolute w-full rounded-full" style={{ height: 6, background: 'var(--surface-4)' }} />
-        {value !== undefined && (
-          <div className="absolute rounded-full"
-            style={{ height: 6, width: `${pct}%`, background: 'var(--accent-grad)', transition: dragging.current ? 'none' : 'width 0.06s ease' }} />
-        )}
-        {value !== undefined && (
-          <div className="absolute rounded-full"
-            style={{
-              left: `${pct}%`, transform: 'translateX(-50%)',
-              width: 16, height: 16, background: '#fff',
-              boxShadow: '0 0 0 3px rgba(249,115,22,0.28), 0 1px 6px rgba(0,0,0,0.45)',
-              transition: dragging.current ? 'none' : 'left 0.06s ease', zIndex: 2,
-            }} />
-        )}
-      </div>
+    <div
+      className="relative flex items-center w-full"
+      style={{ height: 24, touchAction: 'none', cursor: 'pointer' }}
+      ref={trackRef}
+      role="slider"
+      aria-valuemin={MIN} aria-valuemax={MAX} aria-valuenow={value}
+      aria-label={`${label} rating`}
+      tabIndex={0}
+      onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; applyRatio(e.clientX) }}
+      onPointerMove={e => { if (!dragging.current) return; applyRatio(e.clientX) }}
+      onPointerUp={() => { dragging.current = false }}
+      onPointerCancel={() => { dragging.current = false }}
+      onKeyDown={e => {
+        if (e.key === 'ArrowRight') onChange(snap((value ?? MIN) + STEP))
+        if (e.key === 'ArrowLeft')  onChange(snap((value ?? MIN) - STEP))
+        if (e.key === 'Home') onChange(MIN)
+        if (e.key === 'End')  onChange(MAX)
+      }}
+    >
+      <div className="absolute w-full rounded-full" style={{ height: 6, background: 'var(--surface-4)' }} />
       {value !== undefined && (
-        <button
-          onClick={() => onChange(undefined)}
-          className="flex-shrink-0 transition-opacity active:opacity-60"
-          style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700 }}
-          aria-label={t.sheet.clearAria(label)}
-        >
-          {t.sheet.clear}
-        </button>
+        <div className="absolute rounded-full"
+          style={{ height: 6, width: `${pct}%`, background: 'var(--accent-grad)', transition: dragging.current ? 'none' : 'width 0.06s ease' }} />
+      )}
+      {value !== undefined && (
+        <div className="absolute rounded-full"
+          style={{
+            left: `${pct}%`, transform: 'translateX(-50%)',
+            width: 16, height: 16, background: '#fff',
+            boxShadow: '0 0 0 3px rgba(249,115,22,0.28), 0 1px 6px rgba(0,0,0,0.45)',
+            transition: dragging.current ? 'none' : 'left 0.06s ease', zIndex: 2,
+          }} />
       )}
     </div>
   )
@@ -385,24 +377,20 @@ function SlimSeasonSlider({ value, onChange, label, t }: {
    the same "about this season" job and used to live in two tabs.
    ───────────────────────────────────────────────────────────── */
 
-/* Compact episode toggle button
-   · onClick      → toggle single episode
-   · onDoubleClick → bulk-fill all episodes up to and including this one
-   We suppress the native browser dblclick delay by tracking clicks ourselves in
-   SeasonEpisodeCard and calling onBulkFill directly — this component also
-   handles onDoubleClick for pointer devices that fire it reliably. */
-function EpButton({ ep, watched, onClick, onDoubleClick, t }: {
+/* Compact episode toggle button. Single vs double click/tap is disambiguated
+   entirely by SeasonEpisodeCard's handleEpClick (deferred-toggle pattern) —
+   no native onDoubleClick/onContextMenu here, since layering the browser's
+   own dblclick on top of that manual tracking used to fire the bulk-fill
+   twice for one real double-click, which silently cancelled itself out. */
+function EpButton({ ep, watched, onClick, t }: {
   ep: number
   watched: boolean
   onClick: () => void
-  onDoubleClick: () => void
   t: Translations
 }) {
   return (
     <button
       onClick={onClick}
-      onDoubleClick={e => { e.preventDefault(); onDoubleClick() }}
-      onContextMenu={e => { e.preventDefault(); onDoubleClick() }}
       className="ep-btn rounded-xl border font-bold tabular-nums transition-all select-none"
       aria-label={t.sheet.epAria(ep, watched)}
       aria-pressed={watched}
@@ -447,16 +435,20 @@ function EpisodeProgressBar({ done, total }: { done: number; total: number }) {
 }
 
 /* Season episode card — uniform surface style, accordion body */
-function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onRating, t }: {
+function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onRating, defaultOpen, t }: {
   season: TMDBSeason
   episodes: Record<string, boolean>
   onToggle: (ep: number) => void
   onAutoFill: (ep: number) => void
   rating: number | undefined
   onRating: (v: number | undefined) => void
+  defaultOpen: boolean
   t: Translations
 }) {
-  const [open,  setOpen]  = useState(true)
+  // Only the first season starts expanded — having every season open at once
+  // when a show has several looked messy; the rest start compact and expand
+  // on tap like an accordion.
+  const [open,  setOpen]  = useState(defaultOpen)
   const [shown, setShown] = useState(Math.min(season.episode_count, 40))
 
   const sNum  = season.season_number
@@ -465,29 +457,28 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
   const remaining = season.episode_count - shown
   const complete  = season.episode_count > 0 && done === season.episode_count
 
-  // Double-tap detection: track the last tap time and episode per card
-  const lastTap = useRef<{ ep: number; time: number } | null>(null)
-  const DOUBLE_TAP_MS = 300
+  // Double-tap detection: the first click's plain toggle is deferred briefly
+  // so a fast second click on the same episode can still intercept it and
+  // bulk-fill instead — computed against state as it was before this click
+  // sequence, since the deferred toggle hasn't run yet. A slow second click
+  // (past the window) just lets the first toggle apply and starts its own
+  // fresh deferred toggle, so single clicks always work too.
+  const pendingToggle = useRef<{ ep: number; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const DOUBLE_TAP_MS = 260
 
   useEffect(() => { setShown(Math.min(season.episode_count, 40)) }, [season.episode_count])
+  useEffect(() => () => { if (pendingToggle.current) clearTimeout(pendingToggle.current.timer) }, [])
 
-  /* Single tap → toggle; double-tap (two taps within 300 ms on same ep) → bulk-fill */
   const handleEpClick = (ep: number) => {
-    const now = Date.now()
-    if (lastTap.current && lastTap.current.ep === ep && now - lastTap.current.time < DOUBLE_TAP_MS) {
-      // Second tap within window → bulk-fill up to this episode
-      lastTap.current = null
+    if (pendingToggle.current && pendingToggle.current.ep === ep) {
+      clearTimeout(pendingToggle.current.timer)
+      pendingToggle.current = null
       onAutoFill(ep)
-    } else {
-      lastTap.current = { ep, time: now }
-      onToggle(ep)
+      return
     }
-  }
-
-  /* Bulk-fill via onDoubleClick / onContextMenu on EpButton (pointer devices) */
-  const handleEpBulkFill = (ep: number) => {
-    lastTap.current = null   // clear any pending tap state
-    onAutoFill(ep)
+    if (pendingToggle.current) clearTimeout(pendingToggle.current.timer)
+    const timer = setTimeout(() => { onToggle(ep); pendingToggle.current = null }, DOUBLE_TAP_MS)
+    pendingToggle.current = { ep, timer }
   }
 
   return (
@@ -502,7 +493,7 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
           <span className="rounded-full flex-shrink-0" style={{ width: 7, height: 7, background: complete ? 'var(--accent)' : 'var(--border)' }} aria-hidden="true" />
           <span className="font-bold text-white truncate" style={{ fontSize: 13 }}>{label}</span>
-          {rating !== undefined && (
+          {!open && rating !== undefined && (
             <span className="font-bold tabular-nums flex-shrink-0" style={{ fontSize: 10, color: 'var(--accent)' }}>
               ★ {rating.toFixed(1)}
             </span>
@@ -522,6 +513,24 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
         style={{ overflow: 'hidden', maxHeight: open ? 9999 : 0, opacity: open ? 1 : 0, transition: 'max-height 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease' }}
       >
         <div className="px-4 pb-4 flex flex-col gap-3.5">
+          {/* Season rating — the header's ★ badge only shows while collapsed
+              (see !open above), so this readout is the only place the number
+              appears while the season is expanded, no more duplication. Sized
+              to match the episode-count number directly below it (11px) so
+              the two don't visually clash the way 13px vs 11px did before. */}
+          <div className="flex items-center gap-2.5">
+            <div className="flex-1">
+              <SlimSeasonSlider value={rating} onChange={onRating} label={label} t={t} />
+            </div>
+            <span onDoubleClick={() => rating !== undefined && onRating(undefined)}
+              className="font-black tabular-nums flex-shrink-0 text-center select-none"
+              style={{ fontSize: 11, width: 28, color: rating !== undefined ? 'var(--accent)' : 'var(--text-faint)', cursor: rating !== undefined ? 'pointer' : 'default' }}
+              aria-label={rating !== undefined ? t.sheet.clearAria(label) : undefined}
+              title={rating !== undefined ? t.sheet.clearAria(label) : undefined}>
+              {rating !== undefined ? rating.toFixed(1) : '—'}
+            </span>
+          </div>
+
           {/* Progress bar */}
           <EpisodeProgressBar done={done} total={season.episode_count} />
 
@@ -530,19 +539,9 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
             {t.sheet.tapToMarkHint}
           </p>
 
-          {/* Season rating */}
-          <div className="flex items-center gap-2.5">
-            <span className="font-black tabular-nums flex-shrink-0 text-center" style={{ fontSize: 13, width: 32, color: rating !== undefined ? 'var(--accent)' : 'var(--text-faint)' }}>
-              {rating !== undefined ? rating.toFixed(1) : '—'}
-            </span>
-            <div className="flex-1">
-              <SlimSeasonSlider value={rating} onChange={onRating} label={label} t={t} />
-            </div>
-          </div>
-
           {/* Episode grid
               · Single tap  → toggle that episode (handleEpClick double-tap-aware)
-              · Double-click / right-click / long-press → bulk-fill up to that episode */}
+              · Fast double-click/tap on the same episode → bulk-fill up to that episode */}
           <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
             {Array.from({ length: shown }, (_, i) => i + 1).map(ep => (
               <EpButton
@@ -550,7 +549,6 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
                 ep={ep}
                 watched={Boolean(episodes[String(ep)])}
                 onClick={() => handleEpClick(ep)}
-                onDoubleClick={() => handleEpBulkFill(ep)}
                 t={t}
               />
             ))}
@@ -627,7 +625,7 @@ function EpisodesTab({
           {t.sheet.noSeasonData}
         </p>
       )}
-      {seasons.slice(0, 15).map(season => {
+      {seasons.slice(0, 15).map((season, idx) => {
         const sd = localItem.seasonData?.[String(season.season_number)] ?? { episodes: {} }
         return (
           <SeasonEpisodeCard
@@ -635,6 +633,7 @@ function EpisodesTab({
             season={season}
             episodes={sd.episodes}
             rating={sd.rating}
+            defaultOpen={idx === 0}
             onToggle={ep  => onToggleEp(season.season_number, ep)}
             onAutoFill={ep => onAutoFill(season.season_number, ep)}
             onRating={v => onSeasonRating(season.season_number, v)}
@@ -749,6 +748,7 @@ export default function BottomSheet() {
   const [showAllRecs,     setShowAllRecs]     = useState(false)
 
   const touchStartY  = useRef<number | null>(null)
+  const touchStartX  = useRef<number | null>(null)
   const pendingClose = useRef<(() => void) | null>(null)
 
   const requestClose = useCallback((afterClose?: () => void) => {
@@ -958,12 +958,20 @@ export default function BottomSheet() {
       <div className="w-full overflow-y-auto animate-slide-up"
         style={{ background: 'var(--sheet-bg)', borderRadius: '28px 28px 0 0', maxHeight: '92dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)', boxShadow: 'var(--shadow-overlay)', borderTop: '1px solid var(--border-dim)' }}
         onClick={e => e.stopPropagation()}
-        onTouchStart={e => { touchStartY.current = e.touches[0].clientY }}
+        onTouchStart={e => { touchStartY.current = e.touches[0].clientY; touchStartX.current = e.touches[0].clientX }}
         onTouchEnd={e => {
           if (touchStartY.current === null) return
           const dy = e.changedTouches[0].clientY - touchStartY.current
-          touchStartY.current = null
-          if (dy > 80) requestClose()
+          const dx = touchStartX.current !== null ? e.changedTouches[0].clientX - touchStartX.current : 0
+          touchStartY.current = null; touchStartX.current = null
+          // Require a clearly deliberate, mostly-vertical downward swipe — a
+          // large distance, and at least three times as much vertical
+          // movement as horizontal — so an accidental left/right gesture (or
+          // a light scroll) while browsing the sheet's content never gets
+          // misread as "swipe down to close" and pops the unsaved-changes
+          // prompt unexpectedly. Raised twice already at Moe's request —
+          // still too easy to trigger at 140px/2x, now 220px/3x.
+          if (dy > 220 && dy > Math.abs(dx) * 3) requestClose()
         }}>
 
         {/* Drag handle */}

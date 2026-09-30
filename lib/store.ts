@@ -48,7 +48,7 @@ export const useStore = create<AppState>((set, get) => ({
   sheet: null,
   openSheet: (result, item) => set({ sheet: { result, item: item ?? null } }),
   closeSheet: () => set({ sheet: null }),
-  settings: { region: 'ES', sortKey: 'status' },
+  settings: { region: 'ES', sortKey: 'status', language: 'es' },
   loadSettings: async () => { const s = await loadSettings(); set({ settings: s }) },
   updateSettings: async (s) => {
     const settings = { ...get().settings, ...s }

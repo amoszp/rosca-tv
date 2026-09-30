@@ -4,6 +4,7 @@ import { useStore } from '@/lib/store'
 import { exportLibrary, importLibrary } from '@/lib/db'
 import { prewarmConfig, syncItemFull } from '@/lib/mediaSync'
 import { resolveId } from '@/hooks/usePosterSync'
+import { useT, type Lang, type Translations } from '@/lib/i18n'
 import type { ExportData, LibraryItem } from '@/lib/types'
 
 const REGIONS = [
@@ -47,7 +48,7 @@ function normaliseItem(raw: Record<string,unknown>): LibraryItem | null {
   }
 }
 
-async function hydrateBatch(items: LibraryItem[], upsertItem: (i:LibraryItem)=>Promise<void>, showToast:(m:string)=>void): Promise<void> {
+async function hydrateBatch(items: LibraryItem[], upsertItem: (i:LibraryItem)=>Promise<void>, showToast:(m:string)=>void, t: Translations): Promise<void> {
   const needsWork = items.filter(it => !it.poster||it.poster===''||!it.imdbRating)
   if (!needsWork.length) return
   try { await prewarmConfig() } catch {}
@@ -59,10 +60,13 @@ async function hydrateBatch(items: LibraryItem[], upsertItem: (i:LibraryItem)=>P
     }))
     if (i+BATCH<needsWork.length) await new Promise<void>(r=>setTimeout(r,300))
   }
-  if (synced>0) showToast(`✓ Synced ${synced} item${synced!==1?'s':''}`)
+  if (synced>0) showToast(t.settings.syncedToast(synced))
 }
 
+const LANGUAGES: { code: Lang; label: string }[] = [{ code: 'en', label: 'English' }, { code: 'es', label: 'Español' }]
+
 export default function SettingsScreen() {
+  const t = useT()
   const { settings, updateSettings, showToast, loadLibrary:reloadLib, upsertItem } = useStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -71,31 +75,52 @@ export default function SettingsScreen() {
     const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'})
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob)
     a.download=`rosca-library-${new Date().toISOString().slice(0,10)}.json`; a.click()
-    showToast('Library exported ✓')
+    showToast(t.settings.exportedToast)
   }
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file=e.target.files?.[0]; if (!file) return; e.target.value=''
     let data: ExportData
-    try { data=JSON.parse(await file.text()) } catch { showToast('⚠️ Cannot parse JSON'); return }
-    if (!data.library||typeof data.library!=='object') { showToast('⚠️ Missing "library" key'); return }
+    try { data=JSON.parse(await file.text()) } catch { showToast(t.settings.cannotParseJson); return }
+    if (!data.library||typeof data.library!=='object') { showToast(t.settings.missingLibraryKey); return }
     const normalised=(Object.values(data.library) as Array<Record<string,unknown>>).map(normaliseItem).filter((it): it is LibraryItem => it!==null)
-    if (!normalised.length) { showToast('⚠️ No valid items'); return }
+    if (!normalised.length) { showToast(t.settings.noValidItems); return }
     await importLibrary({...data,library:Object.fromEntries(normalised.map(i=>[i.id,i]))})
     await reloadLib()
-    showToast(`Imported ${normalised.length} item${normalised.length!==1?'s':''} ✓ — syncing…`)
-    hydrateBatch(normalised,upsertItem,showToast)
+    showToast(t.settings.importedToast(normalised.length))
+    hydrateBatch(normalised,upsertItem,showToast,t)
   }
 
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ background:'transparent', paddingTop:'env(safe-area-inset-top,0px)' }}>
-      <div className="flex flex-col gap-5 px-4 pt-5 pb-12">
-        <p className="font-black uppercase tracking-widest gradient-text" style={{ fontSize:12 }}>Preferences</p>
+      <div className="flex flex-col gap-5 px-4 pt-5" style={{ paddingBottom: 'calc(var(--nav-h) + 32px)' }}>
+        <p className="font-black uppercase tracking-widest gradient-text" style={{ fontSize:12 }}>{t.settings.preferences}</p>
 
-        <Card title="Streaming Region">
+        <Card title={t.settings.language}>
+          <div className="flex gap-2">
+            {LANGUAGES.map(l => {
+              const active = settings.language === l.code
+              return (
+                <button key={l.code} onClick={() => updateSettings({ language: l.code })} aria-pressed={active}
+                  className="flex-1 rounded-2xl font-bold transition-all active:scale-95"
+                  style={{
+                    padding: '10px 0', fontSize: 13,
+                    background: active ? 'var(--accent-grad)' : 'var(--surface-3)',
+                    color:      active ? '#1A1030' : 'var(--text-muted)',
+                    border:     active ? 'none' : '1px solid var(--border-dim)',
+                    boxShadow:  active ? 'var(--glow-accent)' : 'none',
+                  }}>
+                  {l.label}
+                </button>
+              )
+            })}
+          </div>
+        </Card>
+
+        <Card title={t.settings.streamingRegion}>
           <div className="relative">
-            <select value={settings.region} onChange={e=>{updateSettings({region:e.target.value});showToast(`Region → ${e.target.value}`)}}
-              aria-label="Streaming region" className="w-full appearance-none rounded-2xl px-4 py-3 text-[14px] text-white pr-8"
+            <select value={settings.region} onChange={e=>{updateSettings({region:e.target.value});showToast(t.settings.regionChangedToast(e.target.value))}}
+              aria-label={t.settings.streamingRegionAria} className="w-full appearance-none rounded-2xl px-4 py-3 text-[14px] text-white pr-8"
               style={{ background:'var(--surface-3)', border:'1px solid var(--border-dim)', minHeight:44 }}>
               {REGIONS.map(r=><option key={r.code} value={r.code}>{r.code} — {r.name}</option>)}
             </select>
@@ -103,29 +128,29 @@ export default function SettingsScreen() {
           </div>
         </Card>
 
-        <Card title="Export Library">
-          <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12 }}>Download a complete JSON backup.</p>
-          <Btn label="Download library.json" icon={<DownloadIcon />} onClick={handleExport} />
+        <Card title={t.settings.exportLibrary}>
+          <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12 }}>{t.settings.exportHint}</p>
+          <Btn label={t.settings.downloadBtn} icon={<DownloadIcon />} onClick={handleExport} />
         </Card>
 
-        <Card title="Import Library">
+        <Card title={t.settings.importLibrary}>
           <div className="rounded-2xl p-3.5 mb-3.5" style={{ background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.25)' }}>
             <p className="font-bold mb-2 flex items-center gap-1.5" style={{ fontSize:11, color:'var(--accent)' }}>
-              <WarningIcon /> Read before importing
+              <WarningIcon /> {t.settings.readBeforeImporting}
             </p>
             <ol className="flex flex-col gap-1.5" role="list">
-              {['Export a backup first.','Merges by ID — existing items are overwritten.','Accepts "id" or "tmdb_id" fields.','Posters & ratings sync automatically.'].map((s,i)=>(
+              {t.settings.importSteps.map((s,i)=>(
                 <li key={i} className="flex gap-2" style={{ fontSize:11, color:'var(--text-muted)' }}>
                   <span style={{ color:'var(--text-faint)', flexShrink:0 }}>{i+1}.</span>{s}
                 </li>
               ))}
             </ol>
           </div>
-          <Btn label="Choose .json to import" icon={<UploadIcon />} onClick={()=>fileRef.current?.click()} />
+          <Btn label={t.settings.importBtn} icon={<UploadIcon />} onClick={()=>fileRef.current?.click()} />
           <input ref={fileRef} type="file" accept=".json" onChange={handleImport} aria-hidden="true" />
         </Card>
 
-        <p className="text-center" style={{ fontSize:10, color:'var(--text-faint)' }}>All data is stored locally on this device.</p>
+        <p className="text-center" style={{ fontSize:10, color:'var(--text-faint)' }}>{t.settings.localDataNote}</p>
       </div>
     </div>
   )

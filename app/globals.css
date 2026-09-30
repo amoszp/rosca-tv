@@ -57,6 +57,17 @@
   --watched-dot:    #818CF8;
   --watched-border: rgba(129,140,248,0.32);
 
+  /* ── Personal rating (the ♥ score Moe sets himself) — sapphire blue.
+     Green was too close to the Watching teal; the AVG/accent orange sits
+     right next to this pill in the BottomSheet header, so reusing it would
+     make the two indistinguishable there. This blue sits roughly midway
+     between the TMDB brand cyan and the Watched indigo, and those two only
+     ever appear in different, non-adjacent parts of the UI. */
+  --my-rating-bg:     rgba(59,130,246,0.14);
+  --my-rating-text:   #3B82F6;
+  --my-rating-dot:    #3B82F6;
+  --my-rating-border: rgba(59,130,246,0.30);
+
   /* ── Third-party critic colours (PRESERVED brand exact) ───── */
   --imdb:  #F5C518;
   --tmdb:  #01B4E4;
@@ -70,6 +81,10 @@
   --shadow-overlay: 0 -12px 64px rgba(0,0,0,0.65);
   --glow-accent:    0 6px 24px rgba(249,115,22,0.35);
   --glow-accent-lg: 0 10px 40px rgba(249,115,22,0.40);
+
+  /* ── Bottom nav — fixed overlay height, so scrollable content can
+     reserve exactly enough bottom padding to clear it ────────── */
+  --nav-h: calc(100px + env(safe-area-inset-bottom,0px));
 
   /* ── Safe area ────────────────────────────────────────────── */
   --sat: env(safe-area-inset-top,0px);
@@ -92,9 +107,6 @@ html {
   overflow: hidden;
 }
 body {
-  min-height: 100dvh;
-  height: 100dvh;
-  min-height: -webkit-fill-available;
   background:
     radial-gradient(120% 60% at 15% -10%, rgba(249,115,22,0.14) 0%, transparent 55%),
     radial-gradient(90% 50% at 100% 0%, rgba(251,113,133,0.10) 0%, transparent 60%),

@@ -39,6 +39,6 @@ export interface LibraryItem {
   metacritic?: string; rated?: string; runtime?: string; director?: string
 }
 
-export interface AppSettings { region: string; sortKey: SortKey }
+export interface AppSettings { region: string; sortKey: SortKey; language: 'en' | 'es' }
 export interface Library { [id: number]: LibraryItem }
 export interface ExportData { version: number; exportedAt: string; library: Library }

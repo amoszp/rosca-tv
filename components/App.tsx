@@ -1,6 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { useStore } from '@/lib/store'
+import { useT } from '@/lib/i18n'
 import BottomNav from './nav/BottomNav'
 import HomeScreen from './home/HomeScreen'
 import LibraryScreen from './library/LibraryScreen'
@@ -11,15 +12,16 @@ import Toast from './ui/Toast'
 
 export default function App() {
   const { tab, setTab, loadLibrary, loadSettings } = useStore()
+  const t = useT()
   useEffect(() => { loadLibrary(); loadSettings() }, [loadLibrary, loadSettings])
   const isLibrary = tab === 'movies' || tab === 'series' || tab === 'anime'
   return (
-    <div className="flex flex-col w-full overflow-hidden" style={{ height:'100dvh', background:'var(--bg)' }}>
+    <div className="flex flex-col w-full overflow-hidden" style={{ height:'100%', background:'var(--bg)' }}>
       {!isLibrary && (
         <header className="flex-shrink-0 relative flex items-end justify-center select-none glass" style={{ paddingTop:'env(safe-area-inset-top,0px)', paddingBottom:12, height:'calc(52px + env(safe-area-inset-top,0px))', borderLeft:'none', borderRight:'none', borderTop:'none' }}>
           <WordMark />
           {tab !== 'search' && (
-            <button onClick={() => setTab('search')} aria-label="Search"
+            <button onClick={() => setTab('search')} aria-label={t.nav.search}
               className="absolute flex items-center justify-center rounded-full transition-opacity active:opacity-50"
               style={{ right:16, bottom:12, width:32, height:32, background:'var(--surface-3)', border:'1px solid var(--border-dim)' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

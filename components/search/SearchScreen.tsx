@@ -1,40 +1,22 @@
 'use client'
 import { useRef, useEffect, useCallback } from 'react'
 import { useStore } from '@/lib/store'
-import { searchMulti, getTitle, getYear, formatRating, getLibraryType } from '@/lib/tmdb'
-import { syncItemFull } from '@/lib/mediaSync'
-import { resolveId } from '@/hooks/usePosterSync'
-import type { TMDBResult, LibraryItem } from '@/lib/types'
+import { useTmdbSearch } from '@/hooks/useTmdbSearch'
+import { useT } from '@/lib/i18n'
 import SearchResultItem from './SearchResultItem'
 
-let debounceTimer: ReturnType<typeof setTimeout>
-
 export default function SearchScreen() {
+  const t = useT()
   const { searchQuery, setSearchQuery, searchResults, setSearchResults, isSearching, setIsSearching,
-    library, upsertItem, openSheet, showToast } = useStore()
+    library, openSheet } = useStore()
+  const { search, instantAdd } = useTmdbSearch()
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { const t = setTimeout(() => inputRef.current?.focus(), 80); return () => clearTimeout(t) }, [])
 
   const handleSearch = useCallback((q: string) => {
-    setSearchQuery(q); clearTimeout(debounceTimer)
-    if (!q.trim()) { setSearchResults([]); setIsSearching(false); return }
-    setIsSearching(true)
-    debounceTimer = setTimeout(async () => {
-      try { setSearchResults(await searchMulti(q)) } catch { setSearchResults([]) } finally { setIsSearching(false) }
-    }, 360)
-  }, [setSearchQuery, setSearchResults, setIsSearching])
-
-  const handleInstantAdd = useCallback(async (result: TMDBResult) => {
-    if (library[result.id]) { showToast(`"${getTitle(result)}" already in library`); return }
-    const base: LibraryItem = {
-      id:result.id, mediaType:result.media_type, type:getLibraryType(result),
-      title:getTitle(result), year:getYear(result), poster:result.poster_path||null,
-      tmdbRating:formatRating(result.vote_average), status:null, seasonData:{}, addedAt:Date.now(),
-    }
-    await upsertItem(base); showToast(`"${base.title}" added`)
-    const ownId = resolveId(base)
-    if (ownId) syncItemFull(base, ownId).then(u => upsertItem(u)).catch(()=>{})
-  }, [library, upsertItem, showToast])
+    setSearchQuery(q)
+    search(q, setSearchResults, setIsSearching)
+  }, [setSearchQuery, search, setSearchResults, setIsSearching])
 
   return (
     <div className="flex flex-col h-full" style={{ background:'transparent', paddingTop:'env(safe-area-inset-top,0px)' }}>
@@ -44,24 +26,24 @@ export default function SearchScreen() {
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </span>
           <input ref={inputRef} type="search" value={searchQuery} onChange={e => handleSearch(e.target.value)}
-            placeholder="Search series, anime, movies…" aria-label="Search media"
+            placeholder={t.search.placeholder} aria-label={t.search.inputAria}
             className="w-full rounded-2xl py-3 pl-11 pr-9 text-[15px] text-white glass"
             style={{ minHeight:48 }} />
-          {searchQuery && <button onClick={() => handleSearch('')} aria-label="Clear search"
+          {searchQuery && <button onClick={() => handleSearch('')} aria-label={t.search.clearAria}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-xl leading-none" style={{ color:'var(--text-faint)' }}>×</button>}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto" role="main" aria-label="Search results">
+      <div className="flex-1 overflow-y-auto" role="main" aria-label={t.search.resultsAria} style={{ paddingBottom: 'var(--nav-h)' }}>
         {isSearching && (
           <div className="flex items-center justify-center gap-2 py-12" style={{ color:'var(--text-muted)', fontSize:13 }}>
             <span className="inline-block w-4 h-4 rounded-full" aria-hidden="true"
               style={{ border:'2px solid var(--border)', borderTopColor:'var(--accent)', animation:'spin 0.7s linear infinite' }} />
-            Searching…
+            {t.search.searching}
           </div>
         )}
         {!isSearching && searchQuery && searchResults.length===0 && (
           <p className="text-center pt-12 px-6" role="status" style={{ color:'var(--text-muted)', fontSize:13 }}>
-            No results for &ldquo;{searchQuery}&rdquo;
+            {t.search.noResultsFor(searchQuery)}
           </p>
         )}
         {!isSearching && !searchQuery && (
@@ -70,9 +52,9 @@ export default function SearchScreen() {
               style={{ width:72, height:72 }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             </div>
-            <p className="font-black text-white" style={{ fontSize:17 }}>Find anything</p>
+            <p className="font-black text-white" style={{ fontSize:17 }}>{t.search.findAnything}</p>
             <p style={{ fontSize:13, color:'var(--text-muted)', lineHeight:1.6 }}>
-              Search series, anime, or movies. Tap <strong className="gradient-text font-bold">+</strong> to add instantly.
+              {t.search.hintPrefix} <strong className="gradient-text font-bold">+</strong> {t.search.hintSuffix}
             </p>
           </div>
         )}
@@ -81,7 +63,7 @@ export default function SearchScreen() {
             libStatus={library[result.id]?.status ?? null}
             inLibrary={Boolean(library[result.id])}
             onPress={() => openSheet(result, library[result.id]??null)}
-            onInstantAdd={() => handleInstantAdd(result)} />
+            onInstantAdd={() => instantAdd(result)} />
         ))}
       </div>
     </div>

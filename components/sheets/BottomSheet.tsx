@@ -9,6 +9,7 @@ import {
 import { hydrateItem, combinedScore } from '@/lib/mediaSync'
 import type { TMDBProvider, TMDBSeason, TMDBResult, LibraryItem, Status } from '@/lib/types'
 import { STATUS_STYLES } from '@/lib/statusStyles'
+import { useT, statusLabel, type Translations } from '@/lib/i18n'
 import MediaTypeIcon from '@/components/ui/MediaTypeIcon'
 import PosterCard from '@/components/home/PosterCard'
 import CategorySheet from '@/components/home/CategorySheet'
@@ -55,9 +56,10 @@ function Collapse({ open, id, children }: { open: boolean; id: string; children:
 }
 
 /* ── Header Status Pill + Dropdown ────────────────────────── */
-function StatusPill({ status, onChange }: {
+function StatusPill({ status, onChange, t }: {
   status: Status | null
   onChange: (s: Status | null) => void
+  t: Translations
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -84,18 +86,18 @@ function StatusPill({ status, onChange }: {
         style={{ ...pillStyle, fontSize: 10, padding: '3px 10px 3px 8px', minHeight: 24 }}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={status ? `Status: ${STATUS_STYLES[status].label}` : 'Set status'}
+        aria-label={status ? t.status.tapToChange(t.status[status]) : t.status.setStatus}
       >
         {c
           ? <>
               <span className="rounded-full flex-shrink-0" style={{ width: 5, height: 5, background: c.dot }} aria-hidden="true" />
-              {c.label}
+              {t.status[status as Status]}
             </>
           : <>
               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
               </svg>
-              No status
+              {t.status.none}
             </>
         }
         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
@@ -110,7 +112,7 @@ function StatusPill({ status, onChange }: {
           className="absolute right-0 top-full mt-1.5 rounded-2xl overflow-hidden animate-pop glass-strong"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,0.6)', minWidth: 148, zIndex: 99 }}
           role="listbox"
-          aria-label="Select status"
+          aria-label={t.status.setStatus}
           onClick={e => e.stopPropagation()}
         >
           {(Object.entries(STATUS_STYLES) as [Status, typeof STATUS_STYLES[Status]][]).map(([id, sc]) => {
@@ -130,7 +132,7 @@ function StatusPill({ status, onChange }: {
               >
                 <span className="rounded-full flex-shrink-0" style={{ width: 7, height: 7, background: sc.dot }} aria-hidden="true" />
                 <span className="font-semibold flex-1" style={{ fontSize: 12, color: isActive ? sc.text : 'var(--text-2)' }}>
-                  {sc.label}
+                  {t.status[id]}
                 </span>
                 {isActive && (
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={sc.text} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -148,7 +150,7 @@ function StatusPill({ status, onChange }: {
             style={{ background: status === null ? 'rgba(255,255,255,0.04)' : 'transparent' }}
           >
             <span className="rounded-full flex-shrink-0" style={{ width: 7, height: 7, background: 'rgba(148,163,184,0.3)' }} aria-hidden="true" />
-            <span className="font-semibold flex-1" style={{ fontSize: 12, color: 'rgba(148,163,184,0.6)' }}>Remove Status</span>
+            <span className="font-semibold flex-1" style={{ fontSize: 12, color: 'rgba(148,163,184,0.6)' }}>{t.status.removeStatus}</span>
             {status === null && (
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(148,163,184,0.6)" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="20 6 9 17 4 12" />
@@ -162,8 +164,8 @@ function StatusPill({ status, onChange }: {
 }
 
 /* ── Unsaved-changes modal ─────────────────────────────────── */
-function DirtyModal({ onSave, onDiscard, onCancel }: {
-  onSave: () => void; onDiscard: () => void; onCancel: (e: React.MouseEvent) => void
+function DirtyModal({ onSave, onDiscard, onCancel, t }: {
+  onSave: () => void; onDiscard: () => void; onCancel: (e: React.MouseEvent) => void; t: Translations
 }) {
   return (
     <div className="absolute inset-0 z-[60] flex items-center justify-center px-6 animate-fade-in"
@@ -171,26 +173,26 @@ function DirtyModal({ onSave, onDiscard, onCancel }: {
       <div className="w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4 glass-strong"
         style={{ boxShadow: 'var(--shadow-overlay)' }}>
         <div className="flex flex-col gap-1">
-          <h3 className="font-black text-white" style={{ fontSize: 16 }}>Save changes?</h3>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>You have unsaved changes on this title.</p>
+          <h3 className="font-black text-white" style={{ fontSize: 16 }}>{t.sheet.saveChangesTitle}</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{t.sheet.saveChangesBody}</p>
         </div>
         <div className="flex flex-col gap-2">
           <button onClick={onSave}
             className="w-full rounded-2xl font-black transition-opacity active:opacity-80"
             style={{ padding: '13px 0', fontSize: 14, background: 'var(--accent-grad)', color: '#1A1030', minHeight: 44, boxShadow: 'var(--glow-accent)' }}>
-            Save & Exit
+            {t.sheet.saveAndExit}
           </button>
           <button onClick={onDiscard}
             className="w-full rounded-2xl font-bold transition-opacity active:opacity-75"
             style={{ padding: '13px 0', fontSize: 14, color: '#fb7185', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.20)', minHeight: 44 }}>
-            Discard changes
+            {t.sheet.discardChanges}
           </button>
           {/* CRITICAL: stopPropagation + preventDefault prevent backdrop from closing the drawer */}
           <button
             onClick={e => { e.stopPropagation(); e.preventDefault(); onCancel(e) }}
             className="w-full rounded-2xl font-semibold transition-opacity active:opacity-75"
             style={{ padding: '13px 0', fontSize: 14, color: 'var(--text-muted)', background: 'var(--surface-3)', border: '1px solid var(--border-dim)', minHeight: 44 }}>
-            Cancel and keep editing
+            {t.sheet.cancelKeepEditing}
           </button>
         </div>
       </div>
@@ -199,9 +201,9 @@ function DirtyModal({ onSave, onDiscard, onCancel }: {
 }
 
 /* ── Critic ratings — equal-weight stat cards ────────────────── */
-function CriticRatings({ tmdbRating, imdbRating, rottenTomatoes, metacritic, rated, runtime, loading }: {
+function CriticRatings({ tmdbRating, imdbRating, rottenTomatoes, metacritic, rated, runtime, loading, t }: {
   tmdbRating: string; imdbRating?: string; rottenTomatoes?: string
-  metacritic?: string; rated?: string; runtime?: string; loading: boolean
+  metacritic?: string; rated?: string; runtime?: string; loading: boolean; t: Translations
 }) {
   const rtNum  = rottenTomatoes ? rottenTomatoes.replace('%', '').trim() : null
   const mcNum  = metacritic ? metacritic.split('/')[0].trim() : null
@@ -216,7 +218,7 @@ function CriticRatings({ tmdbRating, imdbRating, rottenTomatoes, metacritic, rat
           </div>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-1.5" role="list" aria-label="Critic ratings">
+      <div className="grid grid-cols-2 gap-1.5" role="list" aria-label={t.sheet.criticRatingsAria}>
         {/* TMDB #01B4E4 — preserved brand colour */}
         <div role="listitem" className="flex flex-col items-center gap-0.5 rounded-xl"
           style={{ padding: '7px 4px', background: 'rgba(1,180,228,0.10)', border: '1px solid rgba(1,180,228,0.25)' }}
@@ -267,26 +269,27 @@ function CriticRatings({ tmdbRating, imdbRating, rottenTomatoes, metacritic, rat
           {runtime && <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 600 }}>{runtime}</span>}
         </div>
       )}
-      {!loading && !hasAny && <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>No critic scores available.</p>}
+      {!loading && !hasAny && <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>{t.sheet.noCriticScores}</p>}
     </div>
   )
 }
 
 /* Compact rating row — number + inline slider, shared by the overall rating
    (Overview tab) and each season's rating (inside its Episodes card). */
-function RatingRow({ label, value, onChange, caption, onCollapse }: {
+function RatingRow({ label, value, onChange, caption, onCollapse, t }: {
   label: string
   value: number | undefined
   onChange: (v: number | undefined) => void
   caption?: string
   onCollapse?: () => void
+  t: Translations
 }) {
   return (
     <div className="rounded-3xl p-4 flex flex-col gap-2" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
       {onCollapse && (
         <button onClick={onCollapse} className="self-end font-bold uppercase tracking-wide transition-opacity active:opacity-60"
           style={{ fontSize: 10, color: 'var(--text-faint)' }}>
-          Done ▴
+          {t.sheet.done}
         </button>
       )}
       <div className="flex items-center gap-3.5">
@@ -294,7 +297,7 @@ function RatingRow({ label, value, onChange, caption, onCollapse }: {
           {value !== undefined ? value.toFixed(1) : '—'}
         </span>
         <div className="flex-1">
-          <SlimSeasonSlider value={value} onChange={onChange} label={label} />
+          <SlimSeasonSlider value={value} onChange={onChange} label={label} t={t} />
         </div>
       </div>
       {caption && <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{caption}</p>}
@@ -304,10 +307,11 @@ function RatingRow({ label, value, onChange, caption, onCollapse }: {
 
 /* Slim slider for a rating row — inline with its Clear button; used for
    both the overall rating and each season's rating. */
-function SlimSeasonSlider({ value, onChange, label }: {
+function SlimSeasonSlider({ value, onChange, label, t }: {
   value: number | undefined
   onChange: (v: number | undefined) => void
   label: string
+  t: Translations
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -366,9 +370,9 @@ function SlimSeasonSlider({ value, onChange, label }: {
           onClick={() => onChange(undefined)}
           className="flex-shrink-0 transition-opacity active:opacity-60"
           style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 700 }}
-          aria-label={`Clear ${label} rating`}
+          aria-label={t.sheet.clearAria(label)}
         >
-          Clear
+          {t.sheet.clear}
         </button>
       )}
     </div>
@@ -387,11 +391,12 @@ function SlimSeasonSlider({ value, onChange, label }: {
    We suppress the native browser dblclick delay by tracking clicks ourselves in
    SeasonEpisodeCard and calling onBulkFill directly — this component also
    handles onDoubleClick for pointer devices that fire it reliably. */
-function EpButton({ ep, watched, onClick, onDoubleClick }: {
+function EpButton({ ep, watched, onClick, onDoubleClick, t }: {
   ep: number
   watched: boolean
   onClick: () => void
   onDoubleClick: () => void
+  t: Translations
 }) {
   return (
     <button
@@ -399,7 +404,7 @@ function EpButton({ ep, watched, onClick, onDoubleClick }: {
       onDoubleClick={e => { e.preventDefault(); onDoubleClick() }}
       onContextMenu={e => { e.preventDefault(); onDoubleClick() }}
       className="ep-btn rounded-xl border font-bold tabular-nums transition-all select-none"
-      aria-label={`Ep ${ep}${watched ? ' (watched)' : ''} — double-tap to fill up to here`}
+      aria-label={t.sheet.epAria(ep, watched)}
       aria-pressed={watched}
       style={{
         width: 34, height: 34, fontSize: 11,
@@ -442,19 +447,20 @@ function EpisodeProgressBar({ done, total }: { done: number; total: number }) {
 }
 
 /* Season episode card — uniform surface style, accordion body */
-function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onRating }: {
+function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onRating, t }: {
   season: TMDBSeason
   episodes: Record<string, boolean>
   onToggle: (ep: number) => void
   onAutoFill: (ep: number) => void
   rating: number | undefined
   onRating: (v: number | undefined) => void
+  t: Translations
 }) {
   const [open,  setOpen]  = useState(true)
   const [shown, setShown] = useState(Math.min(season.episode_count, 40))
 
   const sNum  = season.season_number
-  const label = season.name || `Season ${sNum}`
+  const label = season.name || t.sheet.season(sNum)
   const done  = Object.values(episodes).filter(Boolean).length
   const remaining = season.episode_count - shown
   const complete  = season.episode_count > 0 && done === season.episode_count
@@ -521,7 +527,7 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
 
           {/* Hint */}
           <p style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600 }}>
-            Tap to mark · double-tap to fill up to here
+            {t.sheet.tapToMarkHint}
           </p>
 
           {/* Season rating */}
@@ -530,14 +536,14 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
               {rating !== undefined ? rating.toFixed(1) : '—'}
             </span>
             <div className="flex-1">
-              <SlimSeasonSlider value={rating} onChange={onRating} label={label} />
+              <SlimSeasonSlider value={rating} onChange={onRating} label={label} t={t} />
             </div>
           </div>
 
           {/* Episode grid
               · Single tap  → toggle that episode (handleEpClick double-tap-aware)
               · Double-click / right-click / long-press → bulk-fill up to that episode */}
-          <div className="flex flex-wrap gap-2" role="group" aria-label={`${label} episode checklist`}>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
             {Array.from({ length: shown }, (_, i) => i + 1).map(ep => (
               <EpButton
                 key={ep}
@@ -545,6 +551,7 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
                 watched={Boolean(episodes[String(ep)])}
                 onClick={() => handleEpClick(ep)}
                 onDoubleClick={() => handleEpBulkFill(ep)}
+                t={t}
               />
             ))}
           </div>
@@ -561,7 +568,7 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
                 <polyline points="6 9 12 15 18 9" />
               </svg>
               <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700 }}>
-                Show more (+{remaining} ep{remaining !== 1 ? 's' : ''})
+                {t.sheet.showMore(remaining)}
               </span>
             </button>
           )}
@@ -573,7 +580,7 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
               className="w-full text-center transition-opacity active:opacity-60"
               style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px' }}
             >
-              Show less ↑
+              {t.sheet.showLess}
             </button>
           )}
         </div>
@@ -585,7 +592,7 @@ function SeasonEpisodeCard({ season, episodes, onToggle, onAutoFill, rating, onR
 /* Episodes tab root */
 function EpisodesTab({
   localItem, seasons, loadingData, isTV,
-  onToggleEp, onAutoFill, onSeasonRating,
+  onToggleEp, onAutoFill, onSeasonRating, t,
 }: {
   localItem: LocalItem
   seasons: TMDBSeason[]
@@ -594,13 +601,14 @@ function EpisodesTab({
   onToggleEp: (sNum: number, ep: number) => void
   onAutoFill: (sNum: number, ep: number) => void
   onSeasonRating: (sNum: number, v: number | undefined) => void
+  t: Translations
 }) {
   if (!isTV) {
     return (
-      <div id="dtab-episodes" role="tabpanel" aria-label="Episodes" className="px-4 pb-4">
+      <div id="dtab-episodes" role="tabpanel" aria-label={t.sheet.episodes} className="px-4 pb-4">
         <div className="rounded-2xl p-6 text-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-dim)' }}>
           <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>
-            Episode tracking is only available for series.
+            {t.sheet.episodesUnavailable}
           </p>
         </div>
       </div>
@@ -608,15 +616,15 @@ function EpisodesTab({
   }
 
   return (
-    <div id="dtab-episodes" role="tabpanel" aria-label="Episodes" className="px-4 flex flex-col gap-3.5 pb-4">
+    <div id="dtab-episodes" role="tabpanel" aria-label={t.sheet.episodes} className="px-4 flex flex-col gap-3.5 pb-4">
       {loadingData && seasons.length === 0 && (
         <div className="flex items-center gap-2" style={{ color: 'var(--text-faint)', fontSize: 12 }}>
-          <Spinner /> Loading seasons…
+          <Spinner /> {t.sheet.loadingSeasons}
         </div>
       )}
       {!loadingData && seasons.length === 0 && (
         <p style={{ fontSize: 13, color: 'var(--text-faint)', textAlign: 'center', padding: '24px 0' }}>
-          No season data available.
+          {t.sheet.noSeasonData}
         </p>
       )}
       {seasons.slice(0, 15).map(season => {
@@ -630,12 +638,13 @@ function EpisodesTab({
             onToggle={ep  => onToggleEp(season.season_number, ep)}
             onAutoFill={ep => onAutoFill(season.season_number, ep)}
             onRating={v => onSeasonRating(season.season_number, v)}
+            t={t}
           />
         )
       })}
       {seasons.length > 15 && (
         <p style={{ fontSize: 10, color: 'var(--text-faint)', textAlign: 'center' }}>
-          Showing 15 of {seasons.length} seasons
+          {t.sheet.showingNOfM(15, seasons.length)}
         </p>
       )}
     </div>
@@ -669,33 +678,36 @@ function IconPlay({ active }: { active: boolean }) {
 
 type TabId = 'overview' | 'episodes'
 
-const NAV_TABS: { id: TabId; label: string; Icon: React.FC<{ active: boolean }> }[] = [
-  { id: 'overview', label: 'Overview',  Icon: IconInfo },
-  { id: 'episodes', label: 'Episodes',  Icon: IconPlay  },
-]
+const TAB_ICONS: Record<TabId, React.FC<{ active: boolean }>> = { overview: IconInfo, episodes: IconPlay }
 
-function TabNav({ activeTab, onSelect, showEpisodes }: {
+function TabNav({ activeTab, onSelect, showEpisodes, t }: {
   activeTab: TabId
-  onSelect: (t: TabId) => void
+  onSelect: (id: TabId) => void
   showEpisodes: boolean
+  t: Translations
 }) {
-  const tabs = NAV_TABS.filter(t => t.id !== 'episodes' || showEpisodes)
+  const navTabs: { id: TabId; label: string }[] = [
+    { id: 'overview', label: t.sheet.overview },
+    { id: 'episodes', label: t.sheet.episodes },
+  ]
+  const tabs = navTabs.filter(nt => nt.id !== 'episodes' || showEpisodes)
   return (
     <div
       className="glass flex rounded-2xl"
       style={{ padding: 4, gap: 4 }}
       role="tablist"
-      aria-label="Drawer sections"
+      aria-label={t.sheet.drawerSectionsAria}
     >
-      {tabs.map(t => {
-        const active = activeTab === t.id
+      {tabs.map(nt => {
+        const active = activeTab === nt.id
+        const Icon = TAB_ICONS[nt.id]
         return (
           <button
-            key={t.id}
+            key={nt.id}
             role="tab"
             aria-selected={active}
-            aria-controls={`dtab-${t.id}`}
-            onClick={() => onSelect(t.id)}
+            aria-controls={`dtab-${nt.id}`}
+            onClick={() => onSelect(nt.id)}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl transition-all duration-200 active:scale-95"
             style={{
               padding: '10px 0',
@@ -703,9 +715,9 @@ function TabNav({ activeTab, onSelect, showEpisodes }: {
               boxShadow: active ? 'var(--glow-accent)' : 'none',
             }}
           >
-            <t.Icon active={active} />
+            <Icon active={active} />
             <span className="font-bold" style={{ fontSize: 12.5, color: active ? '#1A1030' : 'var(--text-muted)' }}>
-              {t.label}
+              {nt.label}
             </span>
           </button>
         )
@@ -716,6 +728,7 @@ function TabNav({ activeTab, onSelect, showEpisodes }: {
 
 /* ── Main BottomSheet ──────────────────────────────────────── */
 export default function BottomSheet() {
+  const t = useT()
   const { sheet, closeSheet, openSheet, upsertItem, removeItem, showToast, settings, library } = useStore()
 
   const [localItem,   setLocalItem]   = useState<LocalItem | null>(null)
@@ -888,8 +901,8 @@ export default function BottomSheet() {
     await upsertItem({ ...toSave, updatedAt: Date.now() })
     setIsDirty(false)
     isDirtyRef.current = false
-    showToast('Saved to library')
-  }, [localItem, upsertItem, showToast])
+    showToast(t.sheet.savedToLibrary)
+  }, [localItem, upsertItem, showToast, t])
 
   const openRecommendation = useCallback((r: TMDBResult) => {
     openSheet(r, library[r.id] ?? null)
@@ -898,9 +911,9 @@ export default function BottomSheet() {
   const handleSave   = useCallback(async () => { await doSave(); closeSheet() }, [doSave, closeSheet])
   const handleRemove = useCallback(async () => {
     if (!localItem) return
-    await removeItem(localItem.id); showToast('Removed from library')
+    await removeItem(localItem.id); showToast(t.sheet.removedFromLibrary)
     setIsDirty(false); isDirtyRef.current = false; closeSheet()
-  }, [localItem, removeItem, showToast, closeSheet])
+  }, [localItem, removeItem, showToast, closeSheet, t])
 
   const handleDirtySave = useCallback(async () => {
     await doSave()
@@ -929,7 +942,7 @@ export default function BottomSheet() {
   const inLibrary        = Boolean(library[localItem.id])
   const isTV             = result.media_type === 'tv'
   const posterSrc        = posterUrl(localItem.poster, 'w185')
-  const typeLabel        = result.media_type === 'movie' ? 'Movie' : localItem.type === 'anime' ? 'Anime' : 'Series'
+  const typeLabel        = result.media_type === 'movie' ? t.type.movie : localItem.type === 'anime' ? t.type.anime : t.type.series
   const headerScore      = combinedScore(localItem.tmdbRating, localItem.imdbRating)
   const scoreIsAvg       = Boolean(localItem.imdbRating)
 
@@ -940,7 +953,7 @@ export default function BottomSheet() {
     <div className="absolute inset-0 z-50 flex items-end animate-fade-in"
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
       onClick={() => requestClose()}
-      role="dialog" aria-modal="true" aria-label={`Details for ${localItem.title}`}>
+      role="dialog" aria-modal="true" aria-label={t.sheet.detailsFor(localItem.title)}>
 
       <div className="w-full overflow-y-auto animate-slide-up"
         style={{ background: 'var(--sheet-bg)', borderRadius: '28px 28px 0 0', maxHeight: '92dvh', paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)', boxShadow: 'var(--shadow-overlay)', borderTop: '1px solid var(--border-dim)' }}
@@ -973,7 +986,7 @@ export default function BottomSheet() {
           <div className="flex-1 min-w-0 flex flex-col gap-1.5 pt-0.5">
             <div className="flex items-start justify-between gap-2">
               <h2 className="font-black text-white leading-snug" style={{ fontSize: 15 }}>{localItem.title}</h2>
-              <button onClick={() => requestClose()} aria-label="Close"
+              <button onClick={() => requestClose()} aria-label={t.sheet.close}
                 className="flex-shrink-0 flex items-center justify-center rounded-full transition-opacity active:opacity-50"
                 style={{ width: 30, height: 30, background: 'var(--surface-3)', color: 'var(--text-muted)', fontSize: 17, border: '1px solid var(--border-dim)' }}>
                 ×
@@ -994,22 +1007,22 @@ export default function BottomSheet() {
                   <span style={{ color: scoreIsAvg ? 'var(--sun)' : 'var(--text-muted)', fontSize: 11 }} aria-hidden="true">★</span>
                   <span className="font-black tabular-nums" style={{ color: scoreIsAvg ? 'var(--sun)' : 'var(--text-2)', fontSize: 12 }}>{headerScore}</span>
                   {scoreIsAvg
-                    ? <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(249,115,22,0.55)', letterSpacing: '0.06em' }} aria-label="avg">AVG</span>
-                    : <span style={{ fontSize: 8, color: 'var(--text-faint)' }}>TMDB</span>}
+                    ? <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(249,115,22,0.55)', letterSpacing: '0.06em' }} aria-label="avg">{t.sheet.avg}</span>
+                    : <span style={{ fontSize: 8, color: 'var(--text-faint)' }}>{t.sheet.tmdb}</span>}
                 </div>
               )}
 
               {localItem.userRating !== undefined && (
                 <div className="flex items-center gap-1 rounded-full px-2.5 py-1"
-                  style={{ background: 'rgba(45,212,191,0.12)', border: '1px solid rgba(45,212,191,0.28)' }}
+                  style={{ background: 'var(--my-rating-bg)', border: '1px solid var(--my-rating-border)' }}
                   aria-label={`My rating ${localItem.userRating.toFixed(1)}`}>
-                  <span style={{ color: 'var(--watching-text)', fontSize: 11 }} aria-hidden="true">♥</span>
-                  <span className="font-black tabular-nums" style={{ color: 'var(--watching-text)', fontSize: 12 }}>{localItem.userRating.toFixed(1)}</span>
-                  <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(125,164,199,0.55)', letterSpacing: '0.06em' }}>MY</span>
+                  <span style={{ color: 'var(--my-rating-text)', fontSize: 11 }} aria-hidden="true">♥</span>
+                  <span className="font-black tabular-nums" style={{ color: 'var(--my-rating-text)', fontSize: 12 }}>{localItem.userRating.toFixed(1)}</span>
+                  <span className="font-black uppercase" style={{ fontSize: 7, color: 'rgba(59,130,246,0.55)', letterSpacing: '0.06em' }}>{t.sheet.my}</span>
                 </div>
               )}
 
-              <StatusPill status={localItem.status} onChange={setStatus} />
+              <StatusPill status={localItem.status} onChange={setStatus} t={t} />
             </div>
           </div>
         </div>
@@ -1024,6 +1037,7 @@ export default function BottomSheet() {
             activeTab={activeTab}
             onSelect={setActiveTab}
             showEpisodes={isTV}
+            t={t}
           />
         </div>
 
@@ -1034,17 +1048,18 @@ export default function BottomSheet() {
               only check once (providers + critic scores) behind one shared
               disclosure, then similar titles at the bottom. */}
           {activeTab === 'overview' && (
-            <div id="dtab-overview" role="tabpanel" aria-label="Overview" className="px-4 flex flex-col gap-3.5 pb-4">
+            <div id="dtab-overview" role="tabpanel" aria-label={t.sheet.overview} className="px-4 flex flex-col gap-3.5 pb-4">
 
               {/* ── Rating + Keep-watching — side by side compact, tap Rating to bring it forward for precise dragging ── */}
               <div className={ratingExpanded ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-3'}>
                 {ratingExpanded ? (
                   <RatingRow
-                    label={isTV ? 'Overall rating' : 'My score'}
+                    label={isTV ? t.sheet.overallRating : t.sheet.myScore}
                     value={localItem.userRating}
                     onChange={v => update({ userRating: v })}
-                    caption={isTV && seasonAvg !== undefined ? `Season average ${seasonAvg.toFixed(1)} · your overall score is set independently` : undefined}
+                    caption={isTV && seasonAvg !== undefined ? t.sheet.seasonAverage(seasonAvg.toFixed(1)) : undefined}
                     onCollapse={() => setRatingExpanded(false)}
+                    t={t}
                   />
                 ) : (
                   <button onClick={() => setRatingExpanded(true)}
@@ -1054,7 +1069,7 @@ export default function BottomSheet() {
                       {localItem.userRating !== undefined ? localItem.userRating.toFixed(1) : '—'}
                     </span>
                     <span className="font-bold uppercase tracking-wide" style={{ fontSize: 10, color: 'var(--text-faint)' }}>
-                      {isTV ? 'Overall rating' : 'My score'}
+                      {isTV ? t.sheet.overallRating : t.sheet.myScore}
                     </span>
                   </button>
                 )}
@@ -1079,7 +1094,7 @@ export default function BottomSheet() {
                       </svg>
                     </span>
                     <span className="font-bold text-center" style={{ fontSize: 11, color: localItem.keepWatching ? 'var(--text)' : 'var(--text-faint)', lineHeight: 1.3 }}>
-                      {localItem.keepWatching ? 'Watching for this' : 'Keep an eye on this'}
+                      {localItem.keepWatching ? t.sheet.watchingForThis : t.sheet.keepAnEyeOnThis}
                     </span>
                   </button>
                 )}
@@ -1090,19 +1105,19 @@ export default function BottomSheet() {
                 <button onClick={() => setMoreDetailsOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3.5 transition-opacity active:opacity-70"
                   aria-expanded={moreDetailsOpen} aria-controls="more-details">
-                  <span className="font-bold text-white" style={{ fontSize: 13 }}>More details</span>
+                  <span className="font-bold text-white" style={{ fontSize: 13 }}>{t.sheet.moreDetails}</span>
                   <Chevron open={moreDetailsOpen} />
                 </button>
                 <Collapse open={moreDetailsOpen} id="more-details">
                   <div className="px-4 pb-4 grid grid-cols-2 gap-4">
                     <div style={{ borderRight: '1px solid var(--border-dim)', paddingRight: 16 }}>
                       <p className="font-black uppercase tracking-wide" style={{ fontSize: 9.5, color: 'var(--text-faint)', marginBottom: 10 }}>
-                        Watch in {settings.region}
+                        {t.sheet.watchIn(settings.region)}
                       </p>
                       {loadingData
-                        ? <div className="flex items-center gap-2" style={{ color: 'var(--text-faint)', fontSize: 12 }}><Spinner /> Loading…</div>
+                        ? <div className="flex items-center gap-2" style={{ color: 'var(--text-faint)', fontSize: 12 }}><Spinner /> {t.sheet.loading}</div>
                         : providers.length === 0
-                          ? <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>Not available.</p>
+                          ? <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>{t.sheet.notAvailable}</p>
                           : <div className="flex flex-wrap gap-2.5">
                               {providers.map(p => (
                                 <button key={p.provider_id}
@@ -1117,12 +1132,12 @@ export default function BottomSheet() {
                     </div>
                     <div>
                       <p className="font-black uppercase tracking-wide" style={{ fontSize: 9.5, color: 'var(--text-faint)', marginBottom: 10 }}>
-                        Critic Ratings
+                        {t.sheet.criticRatings}
                       </p>
                       <CriticRatings
                         tmdbRating={localItem.tmdbRating} imdbRating={localItem.imdbRating}
                         rottenTomatoes={localItem.rottenTomatoes} metacritic={localItem.metacritic}
-                        rated={localItem.rated} runtime={localItem.runtime} loading={loadingOmdb} />
+                        rated={localItem.rated} runtime={localItem.runtime} loading={loadingOmdb} t={t} />
                     </div>
                   </div>
                 </Collapse>
@@ -1137,7 +1152,7 @@ export default function BottomSheet() {
                     style={{ width: 30, height: 30, background: 'rgba(249,115,22,0.12)', color: 'var(--accent)' }} aria-hidden="true">
                     <IconEdit />
                   </span>
-                  <span className="flex-1 text-left font-bold text-white" style={{ fontSize: 13 }}>Private Notes</span>
+                  <span className="flex-1 text-left font-bold text-white" style={{ fontSize: 13 }}>{t.sheet.privateNotes}</span>
                   <Chevron open={notesOpen} />
                 </button>
                 <Collapse open={notesOpen} id="notes-panel">
@@ -1145,8 +1160,8 @@ export default function BottomSheet() {
                     <textarea
                       value={localItem.notes || ''}
                       onChange={e => update({ notes: e.target.value })}
-                      placeholder="Your thoughts, spoilers, recommendations…"
-                      aria-label="Private notes"
+                      placeholder={t.sheet.notesPlaceholder}
+                      aria-label={t.sheet.notesAria}
                       rows={4}
                       className="w-full rounded-2xl px-3.5 py-3 text-[13px] text-white resize-none"
                       style={{ background: 'var(--surface-3)', border: '1px solid var(--border-dim)', lineHeight: 1.6 }}
@@ -1160,19 +1175,19 @@ export default function BottomSheet() {
                 <div>
                   <div className="flex items-center justify-between px-1 mb-2.5">
                     <p className="font-bold uppercase tracking-wide" style={{ fontSize: 11, color: 'var(--text-faint)' }}>
-                      More Like This
+                      {t.sheet.moreLikeThis}
                     </p>
                     {recommendations.length > 6 && (
                       <button onClick={() => setShowAllRecs(true)}
                         className="font-bold uppercase tracking-wide"
                         style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                        All · {recommendations.length}
+                        {t.sheet.allCount(recommendations.length)}
                       </button>
                     )}
                   </div>
                   {loadingRecs ? (
                     <div className="flex items-center gap-2 px-1" style={{ color: 'var(--text-faint)', fontSize: 12 }}>
-                      <Spinner /> Finding similar titles…
+                      <Spinner /> {t.sheet.findingSimilar}
                     </div>
                   ) : (
                     <div className="flex gap-3 overflow-x-auto pb-1">
@@ -1200,6 +1215,7 @@ export default function BottomSheet() {
               onToggleEp={toggleEpisode}
               onAutoFill={autoFillUpTo}
               onSeasonRating={updateSeasonRating}
+              t={t}
             />
           )}
         </div>
@@ -1211,13 +1227,13 @@ export default function BottomSheet() {
           <button onClick={handleSave}
             className="flex-1 rounded-2xl font-black transition-opacity active:opacity-80"
             style={{ padding: '14px 0', fontSize: 15, background: 'var(--accent-grad)', color: '#1A1030', minHeight: 44, boxShadow: 'var(--glow-accent-lg)' }}>
-            {isDirty ? 'Save ●' : 'Save'}
+            {isDirty ? t.sheet.saveDirty : t.sheet.save}
           </button>
           {inLibrary && (
             <button onClick={handleRemove}
               className="flex-1 rounded-2xl font-bold transition-opacity active:opacity-75"
               style={{ padding: '14px 0', fontSize: 14, color: '#fb7185', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.20)', minHeight: 44 }}>
-              Remove
+              {t.sheet.remove}
             </button>
           )}
         </div>
@@ -1229,13 +1245,14 @@ export default function BottomSheet() {
           onSave={handleDirtySave}
           onDiscard={handleDirtyDiscard}
           onCancel={handleDirtyCancel}
+          t={t}
         />
       )}
 
       {/* ── More Like This — full list ── */}
       {showAllRecs && (
         <CategorySheet
-          title="More Like This"
+          title={t.sheet.moreLikeThis}
           items={recommendations}
           onClose={() => setShowAllRecs(false)}
           onSelect={r => { setShowAllRecs(false); openRecommendation(r) }}

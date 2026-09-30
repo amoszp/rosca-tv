@@ -1,30 +1,36 @@
 'use client'
 import { useStore } from '@/lib/store'
+import { useT } from '@/lib/i18n'
 import type { Tab } from '@/lib/types'
 
-const ITEMS: { id: Tab; label: string }[] = [
-  { id:'home', label:'Home' },
-  { id:'series', label:'Series' },{ id:'anime', label:'Anime' },
-  { id:'movies', label:'Movies' },{ id:'settings', label:'Settings' },
-]
+const IDS: Tab[] = ['home', 'series', 'anime', 'movies', 'settings']
 
 export default function BottomNav() {
   const { tab, setTab } = useStore()
+  const t = useT()
+  const ITEMS: { id: Tab; label: string }[] = IDS.map(id => ({ id, label: t.nav[id] }))
   return (
-    <nav className="flex-shrink-0 glass-strong flex flex-col" style={{ paddingBottom:'env(safe-area-inset-bottom,0px)', borderRadius:'24px 24px 0 0', boxShadow:'var(--shadow-lg)' }}>
-      <div className="flex" style={{ height:56, padding:'4px 6px' }}>
+    <nav className="flex flex-col" style={{
+      position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)', left: '50%', transform: 'translateX(-50%)',
+      zIndex: 10, background: 'var(--bg)', borderRadius: 26, boxShadow: 'var(--shadow-lg)',
+      width: 'calc(100% - 28px)', maxWidth: 402,
+    }}>
+      <div className="flex" style={{ padding:'8px 8px' }}>
         {ITEMS.map(item => {
           const active = tab === item.id
           return (
             <button key={item.id} onClick={() => setTab(item.id)}
               className="flex-1 flex flex-col items-center justify-center gap-1 rounded-2xl transition-all duration-200 active:scale-95"
               style={{
+                padding: '8px 4px',
                 background: active ? 'var(--accent-grad)' : 'transparent',
                 boxShadow: active ? 'var(--glow-accent)' : 'none',
               }}
               aria-label={item.label} aria-current={active ? 'page' : undefined}>
               <NavIcon id={item.id} active={active} />
-              <span style={{ fontSize:9.5, fontWeight:700, letterSpacing:'0.03em', color: active ? '#1A1030' : 'var(--text-faint)' }}>{item.label}</span>
+              {active && (
+                <span style={{ fontSize:9.5, fontWeight:700, letterSpacing:'0.03em', color:'#1A1030' }}>{item.label}</span>
+              )}
             </button>
           )
         })}
@@ -34,7 +40,7 @@ export default function BottomNav() {
 }
 
 function NavIcon({ id, active }: { id: Tab; active: boolean }) {
-  const s = active ? '#1A1030' : 'var(--text-faint)'; const w = active ? 2.4 : 1.6; const sz = 20
+  const s = active ? '#1A1030' : 'var(--text-faint)'; const w = active ? 2.4 : 1.6; const sz = 24
   if (id === 'home')   return <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
   if (id === 'series') return <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
   if (id === 'anime')  return <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={s} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill={s} stroke="none"/><circle cx="15" cy="10" r="1" fill={s} stroke="none"/></svg>

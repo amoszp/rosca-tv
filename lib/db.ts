@@ -95,13 +95,17 @@ export async function deleteItem(id: number): Promise<void> {
   } catch { /* ignore */ }
 }
 
+const DEFAULT_SETTINGS: AppSettings = { region: 'ES', sortKey: 'status', language: 'es' }
+
 export async function loadSettings(): Promise<AppSettings> {
   try {
     const s = await idbGet<AppSettings>('settings', 'cfg')
-    return s ?? { region: 'ES', sortKey: 'status' }
+    // Merge over the defaults so settings saved before a field (e.g. language)
+    // existed still come back with a valid value instead of undefined.
+    return { ...DEFAULT_SETTINGS, ...(s ?? {}) }
   } catch {
-    try { return JSON.parse(localStorage.getItem(LS_SET) || '{"region":"ES","sortKey":"status"}') }
-    catch { return { region: 'ES', sortKey: 'status' } }
+    try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(LS_SET) || '{}') } }
+    catch { return DEFAULT_SETTINGS }
   }
 }
 export async function saveSettings(s: AppSettings): Promise<void> {

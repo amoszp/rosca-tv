@@ -3,12 +3,12 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useStore } from '@/lib/store'
 import type { LibraryItem, SeasonRating, TMDBResult } from '@/lib/types'
 import { getTVNextEpisode, getRecommendations, getTitle, formatRating, getLibraryType } from '@/lib/tmdb'
+import { useT } from '@/lib/i18n'
 import PosterCard from '@/components/home/PosterCard'
 import CategorySheet from '@/components/home/CategorySheet'
 
 type LibraryTypeKey = 'series' | 'anime' | 'movies'
 const CATEGORY_ORDER: LibraryTypeKey[] = ['series', 'anime', 'movies']
-const CATEGORY_LABEL: Record<LibraryTypeKey, string> = { series: 'Series', anime: 'Anime', movies: 'Movies' }
 
 /* Section label — a colour-coded dot keeps Watching / Coming Soon / Interests
    visually distinct at a glance, with an optional action (e.g. "All") on the right. */
@@ -51,6 +51,8 @@ function formatAirDate(iso: string): string {
 interface ArrivedEntry { item: LibraryItem; airDate: string; seasonNumber: number; episodeNumber: number }
 
 export default function HomeScreen() {
+  const t = useT()
+  const CATEGORY_LABEL: Record<LibraryTypeKey, string> = { series: t.type.series, anime: t.type.anime, movies: t.type.movies }
   const { library, openSheet } = useStore()
 
   const [arrived, setArrived] = useState<ArrivedEntry[]>([])
@@ -71,13 +73,17 @@ export default function HomeScreen() {
   }, [all])
   const watchingVisible = showAllWatching ? continueWatching : continueWatching.slice(0, 4)
 
-  /* Coming Soon — series flagged "keep an eye on", already finished, or rated above 8
-     (item or any season), checked against TMDB's next_episode_to_air.
+  /* Coming Soon — series flagged "keep an eye on", currently watching, already
+     finished, or rated above 8 (item or any season), checked against TMDB's
+     next_episode_to_air. "Watching" and "watched" are included unconditionally
+     (no rating/flag required) — Moe wants anything in progress or finished to
+     surface a new episode automatically, and decide then whether to keep going.
      TV-only: TMDB has no equivalent per-item signal for standalone movies/sagas. */
   const watchCandidates = useMemo(() => {
     return all.filter(i => {
       if (i.mediaType !== 'tv') return false
       if (i.keepWatching) return true
+      if (i.status === 'watching') return true
       if (i.status === 'watched') return true
       if ((i.userRating ?? 0) > 8) return true
       const seasonData: Record<string, SeasonRating> = i.seasonData ?? {}
@@ -103,15 +109,6 @@ export default function HomeScreen() {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchCandidates.map(i => i.id).join(',')])
-
-  /* Watching items that also have a scheduled next episode show that
-     episode's label instead of a redundant "Watching" tag — the section
-     header already says Watching. */
-  const arrivedById = useMemo(() => {
-    const map = new Map<number, ArrivedEntry>()
-    for (const e of arrived) map.set(e.item.id, e)
-    return map
-  }, [arrived])
 
   /* Based on Your Interests — TMDB recommendations seeded from everything you
      rated highly or marked watched (movies, series, and anime alike), pooled,
@@ -172,44 +169,40 @@ export default function HomeScreen() {
   }, [openSheet, library])
 
   return (
-    <div className="h-full relative" role="main" aria-label="Home">
+    <div className="h-full relative" role="main" aria-label={t.home.title}>
       <div className="h-full overflow-y-auto">
-      <div className="flex flex-col gap-7 px-3.5 pt-4 pb-8">
+      <div className="flex flex-col gap-7 px-3.5 pt-4" style={{ paddingBottom: 'calc(var(--nav-h) + 24px)' }}>
 
         {/* ── Watching ── */}
         <div className="flex flex-col gap-2.5">
-          <SectionLabel label="Watching" accent="var(--watching-dot)" action={
+          <SectionLabel label={t.home.watching} accent="var(--watching-dot)" action={
             continueWatching.length > 4 ? (
               <button onClick={() => setShowAllWatching(v => !v)}
                 className="font-bold uppercase tracking-wide"
                 style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                {showAllWatching ? 'Show less' : `All · ${continueWatching.length}`}
+                {showAllWatching ? t.home.showLess : t.home.allCount(continueWatching.length)}
               </button>
             ) : undefined
           } />
           {continueWatching.length === 0 ? (
-            <EmptySection text="Nothing marked as Watching yet — set a status from any title's detail sheet." />
+            <EmptySection text={t.home.emptyWatching} />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 92px))', columnGap: 12, rowGap: 16 }}>
-              {watchingVisible.map(item => {
-                const next = arrivedById.get(item.id)
-                return (
-                  <PosterCard key={item.id} posterPath={item.poster} title={item.title}
-                    episodeLabel={next ? `S${next.seasonNumber} E${next.episodeNumber} · ${formatAirDate(next.airDate)}` : undefined}
-                    onPress={() => openItem(item)} />
-                )
-              })}
+              {watchingVisible.map(item => (
+                <PosterCard key={item.id} posterPath={item.poster} title={item.title}
+                  onPress={() => openItem(item)} />
+              ))}
             </div>
           )}
         </div>
 
         {/* ── Coming Soon ── */}
         <div className="flex flex-col gap-2.5">
-          <SectionLabel label="Coming Soon" accent="var(--accent)" />
+          <SectionLabel label={t.home.comingSoon} accent="var(--accent)" />
           {loadingArrived ? (
-            <LoadingRow text="Checking for new episodes…" />
+            <LoadingRow text={t.home.checkingEpisodes} />
           ) : arrived.length === 0 ? (
-            <EmptySection text="No new episodes scheduled for anything you're keeping an eye on." />
+            <EmptySection text={t.home.emptyComingSoon} />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 92px))', columnGap: 12, rowGap: 16 }}>
               {arrived.map(({ item, airDate, seasonNumber, episodeNumber }) => (
@@ -222,11 +215,11 @@ export default function HomeScreen() {
 
         {/* ── Based on Your Interests ── */}
         <div className="flex flex-col gap-5">
-          <SectionLabel label="Based on Your Interests" accent="#C084FC" />
+          <SectionLabel label={t.home.interests} accent="#C084FC" />
           {loadingInterests ? (
-            <LoadingRow text="Finding picks for you…" />
+            <LoadingRow text={t.home.findingPicks} />
           ) : interestPool.length === 0 ? (
-            <EmptySection text="Rate or mark a few titles as watched to get personalized picks." />
+            <EmptySection text={t.home.emptyInterests} />
           ) : (
             CATEGORY_ORDER.map(cat => {
               const items = interestsByType[cat]
@@ -239,7 +232,7 @@ export default function HomeScreen() {
                       <button onClick={() => setOpenCategory(cat)}
                         className="font-bold uppercase tracking-wide"
                         style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                        All · {items.length}
+                        {t.home.allCount(items.length)}
                       </button>
                     )}
                   </div>

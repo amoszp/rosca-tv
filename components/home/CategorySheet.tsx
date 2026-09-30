@@ -1,6 +1,7 @@
 'use client'
 import { getTitle, formatRating } from '@/lib/tmdb'
 import type { TMDBResult } from '@/lib/types'
+import { useT } from '@/lib/i18n'
 import PosterCard from './PosterCard'
 
 interface Props { title: string; items: TMDBResult[]; onSelect: (r: TMDBResult) => void; onClose: () => void }
@@ -9,6 +10,7 @@ interface Props { title: string; items: TMDBResult[]; onSelect: (r: TMDBResult) 
    Anime / Movies) — reuses the same backdrop + slide-up sheet pattern as
    the item detail sheet, so it reads as the same kind of surface. */
 export default function CategorySheet({ title, items, onSelect, onClose }: Props) {
+  const t = useT()
   return (
     <div className="fixed inset-0 z-50 flex items-end animate-fade-in"
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
@@ -22,7 +24,7 @@ export default function CategorySheet({ title, items, onSelect, onClose }: Props
         <div className="flex items-center justify-between px-4 pt-3 pb-4" style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--sheet-bg)' }}>
           <div style={{ position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)', width: 36, height: 4, background: 'var(--border)', borderRadius: 2 }} aria-hidden="true" />
           <p className="font-black uppercase tracking-widest" style={{ fontSize: 12, color: 'var(--text-faint)' }}>{title}</p>
-          <button onClick={onClose} aria-label="Close"
+          <button onClick={onClose} aria-label={t.sheet.close}
             className="flex items-center justify-center rounded-full transition-opacity active:opacity-50"
             style={{ width: 32, height: 32, background: 'var(--surface-3)', color: 'var(--text-muted)', fontSize: 18, border: '1px solid var(--border-dim)' }}>
             ×
